@@ -37,7 +37,7 @@ from qgis.core import QgsRasterLayer, QgsRaster
 from qgis.core import QgsProject
 from qgis.core import QgsFeatureRequest 
 from qgis.core import QgsDistanceArea
-
+ 
 
 
 import matplotlib.pyplot as plt
