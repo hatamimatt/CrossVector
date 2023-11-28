@@ -832,7 +832,7 @@ class CrossVectors:
         self.plot_cross_section(distances, elevations, xml_file_path, vector_buffer_data, los_vectors_data, line_geometry, line_start_point, line_end_point, line_direction_vector, self.segments)
 
         #return segment_length, segments
-    
+     
 
 
 
