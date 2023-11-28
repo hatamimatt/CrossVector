@@ -799,7 +799,7 @@ class CrossVectors:
             # Step after your existing code - Create a new vector layer
 
 
-        '''
+
         # Get the current CRS from the QGIS project
         current_crs = QgsProject.instance().crs().authid()
 
@@ -828,7 +828,7 @@ class CrossVectors:
 
         # Add the layer to the QGIS interface without saving to disk
         QgsProject.instance().addMapLayer(line_layer)
-        '''
+
         self.plot_cross_section(distances, elevations, xml_file_path, vector_buffer_data, los_vectors_data, line_geometry, line_start_point, line_end_point, line_direction_vector, self.segments)
 
         #return segment_length, segments
