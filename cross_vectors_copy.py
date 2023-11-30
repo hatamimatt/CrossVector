@@ -627,7 +627,7 @@ class CrossVectors:
             # Step 8: Iterate through LOS datasets
         
 
-        self.plot_cross_section(distances, elevations, xml_file_path, vector_buffer_data, los_vectors_data, line_geometry, line_start_point, line_end_point, line_direction_vector, self.segment_length, self.segments)
+        self.plot_cross_section(distances, elevations, vector_buffer_data, los_vectors_data,  self.segment_length, self.segments)
 
         #return segment_length, segments
     
@@ -636,7 +636,7 @@ class CrossVectors:
 
 
 
-    def plot_cross_section(self, distances, elevations, xml_file_path, vectors_data, los_vectors_data, line_geometry, line_start_point, line_end_point, line_direction_vector, segment_length, segments):
+    def plot_cross_section(self, distances, elevations, vectors_data, los_vectors_data, segment_length, segments):
         print("Plotting cross section...")
         #print(los_vectors_data)
         fig, ax = plt.subplots(figsize=(12, 4))

@@ -161,6 +161,53 @@ class CrossVectors:
 
 
 
+    def start(self, dtm_layer=None, line_layer=None):
+        self.dtm_layer = dtm_layer
+        if line_layer:
+            self.process_line_layer(line_layer)
+        else:
+            self.initiate_line_drawing()
+
+
+
+    def initiate_line_drawing(self):
+        # Pass self.dtm_layer to LineDrawTool
+        self.line_tool = LineDrawTool(self.iface.mapCanvas(), self.dtm_layer)
+        self.iface.mapCanvas().setMapTool(self.line_tool)
+        self.line_tool.lineDrawnSignal.connect(self.lineDrawn)
+
+
+    def process_line_layer(self, line_layer):   
+        """ 
+        Processes a given line layer.   
+
+        :param line_layer: The line layer to process.   
+        :type line_layer: QgsVectorLayer    
+        """ 
+        print(f' processing line layer in')
+        for feature in line_layer.getFeatures():    
+            line_geometry = feature.geometry()  
+            self.handle_line_geometry(line_geometry)    
+
+
+    def handle_line_geometry(self, line_geometry):
+
+        if self.dtm_layer:
+            distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
+
+        # Step 1: Getting elevation data
+        distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
+
+        # Step 2: Parse the XML file for vector and LOS datasets
+        dtm_layers, los_datasets, vector_datasets = parse_xml(self.combined_datasets_file_path)
+
+        # Step 3: Process Vector and LOS datasets
+        vector_buffer_data, los_vectors_data = self.process_vector_datasets(vector_datasets, line_geometry)
+        #los_vectors_data = self.process_los_datasets(los_datasets, line_geometry)
+
+        # Step 4: Plot cross-section
+        self.plot_cross_section(distances, elevations, vector_buffer_data, los_vectors_data)
+
 
 
     def tr(self, message):
@@ -340,558 +387,12 @@ class CrossVectors:
 
 
 
-    def start(self, line_layer=None):
-        if line_layer:
-            self.process_line_layer(line_layer)
-        else:
-            self.initiate_line_drawing()
-
-
-    def initiate_line_drawing(self):
-        """
-        Initiates the manual line drawing process.
-        """
-        # Logic to initiate line drawing
-        self.line_tool = LineDrawTool(self.iface.mapCanvas())
-        self.iface.mapCanvas().setMapTool(self.line_tool)
-        self.line_tool.lineDrawnSignal.connect(self.lineDrawn)
-
-
-
-    def process_line_layer(self, line_layer):
-        """
-        Processes a given line layer.
-
-        :param line_layer: The line layer to process.
-        :type line_layer: QgsVectorLayer
-        """
-        for feature in line_layer.getFeatures():
-            line_geometry = feature.geometry()
-            self.handle_line_geometry(line_geometry)
-
-
-
-
-    def handle_line_geometry(self, line_geometry):
-        """
-        Handles the processing of line geometry.
-
-        :param line_geometry: The geometry of the line to process.
-        :type line_geometry: QgsGeometry
-        """
-        if line_geometry.isMultipart():
-            # Handle MultiLineString geometry
-            lines = line_geometry.asMultiPolyline()
-            for line in lines:
-                self.process_single_line(line)
-        else:
-            # Handle single LineString geometry
-            line = line_geometry.asPolyline()
-            self.process_single_line(line)
-
-
-
-
-    def process_single_line(self, line):
-
-        # Assuming the line is not empty
-        if line:
-            line_start_point = line[0]
-            line_end_point = line[-1]
-            line_direction_vector = QgsVector(line_end_point.x() - line_start_point.x(), 
-                                              line_end_point.y() - line_start_point.y())
-
-            # Normalize the direction vector
-            magnitude_of_direction = math.sqrt(line_direction_vector.x()**2 + 
-                                               line_direction_vector.y()**2)
-            normalized_direction_vector = QgsVector(line_direction_vector.x() / magnitude_of_direction, 
-                                                    line_direction_vector.y() / magnitude_of_direction)
-
-
-
-        # Step 1: Getting elevation data
-        distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
-        #print("Step 1: Elevation data retrieved")
-
-        # Step 2: Get the XML file path from your configuration
-        xml_file_path = os.path.join(os.getenv('APPDATA'), 'QGIS', 'QGIS3', 'profiles', 'default', 'python', 'plugins', 'combined_datasets.xml')  # Replace with the actual path
-        #print(f"Step 2: XML file path found ")
-
-        # Step 3: Call the parse_xml function to get vector datasets and buffer radii
-        dtm_layers, los_datasets, vector_datasets = parse_xml(xml_file_path)
-        #print("Step 3: XML file parsed")
-
-
-
-        if not dtm_layers:
-            print("No DTM layers found in the XML file.")
-            return
-        
-        # Step 4: Create a set to store unique coordinates
-        unique_coordinates = set()
-        vector_buffer_data = []  # List to hold data for points within the buffer
-        los_buffer_data = []  # List to hold data for points within the buffer
-        los_vectors_data = []
-        
-        #print("Step 4: Unique coordinates set created")
-
-
-        # Step 5: Iterate through vector datasets
-        for vector_dataset in vector_datasets:
-
-            cell_number = vector_dataset.get('CellNumber')
-            if isinstance(cell_number, str):
-                cell_number = float(cell_number)
-            print(f'vector dataset cellnumber: {vector_dataset.get("CellNumber")} ')
-            print(f' cellnumber type: {type(vector_dataset.get("CellNumber"))}')
-
-            
-            # Looping through the inSAR dataset
-            if cell_number == 0:
-                print(' cell number = 0, priesm data is given')
-                #Check for field names in the vector dataset and store them
-                self.east_layer_field = vector_dataset.get('Eastlayer', self.east_layer_field)
-                self.north_layer_field = vector_dataset.get('NorthLayer', self.north_layer_field)
-                self.vertical_layer_field = vector_dataset.get('VerticalLayer', self.vertical_layer_field)
-                self.vector_layer_label = vector_dataset.get('VECTORLayerlabel', self.vector_layer_label)
-                self.vector_layer_color = vector_dataset.get('VECTIRcolor', self.vector_layer_color)
-                self.vector_layer_bufferRadius = vector_dataset.get('BufferRadius', self.vector_layer_bufferRadius)
-                self.vector_layer_cell_number = vector_dataset.get('CellNumber', self.vector_layer_cell_number)
-                
-                #print(f"vector_dataset labellll: {vector_dataset.get('VECTORLayerlabel')}")
-
-                buffer_radius = vector_dataset.get('BufferRadius', 0.0)  # Retrieve the buffer radius from the vector dataset
-
-                # Step 6: Create a buffer geometry around the drawn line
-                buffer_geometry = line_geometry.buffer(buffer_radius, 0)  # Adjust buffer radius and segments as needed
-                #print(f"Step 6: Buffer geometry created with radius {buffer_radius}")
-
-                # Step 7: Iterate through layers specified in the XML for this vector dataset
-                layer_keys = [self.east_layer_field, self.north_layer_field, self.vertical_layer_field]
-                #print(f"layer keys: {layer_keys} from dataset {vector_dataset}")
-                for key in layer_keys:
-                    #print(f"vector key: {key}")
-                    if not key:
-                        # Handle the case when the key doesn't exist or has an empty value
-                        print(f"No value found for key {key}. Skipping...")
-                        continue
-
-
-                    # Get the QgsVectorLayer object corresponding to the layer name
-                    vector_layer = QgsProject.instance().mapLayersByName(key)
-                    #print(f" key: {key}")
-                    if not vector_layer:
-                        print(f"Couldn't find a vector layer named {key} in the project.")
-                        continue
-                    
-                    vector_layer = vector_layer[0]  # Assuming you want the first matching layer
-
-                    # Create a spatial index for the vector layer
-                    spatial_index = QgsSpatialIndex(vector_layer.getFeatures())
-
-                    # Use the spatial index to find potential matches
-                    potential_matches = spatial_index.intersects(buffer_geometry.boundingBox())
-                    #print(f"potential matches: {potential_matches}")
-                    # Filter the potential matches
-                    for feature_id in potential_matches:
-                        feature = vector_layer.getFeature(feature_id)
-                        if buffer_geometry.intersects(feature.geometry()):
-                            # vector_layer.select(feature.id())
-                            vector_layer.selectByIds([feature.id()], QgsVectorLayer.AddToSelection)
-
-                    # Get the selected features and process them
-                    selected_features = vector_layer.selectedFeatures()
-                    print(f"selected features: {vector_layer}")
-
-
-                    # Iterate through the selected features
-                   
-                    for feature in selected_features:
-                        east_disp = feature[vector_dataset['EASTfield']]
-                        north_disp = feature[vector_dataset['NorthField']]
-                        vertical_disp = feature[vector_dataset['VerticalField']]
-                        vector_label_field=feature[vector_dataset['VECTORLabelField']]
-                        vector_layer_color=vector_dataset['VECTIRcolor']
-                        #print(f" selected a feature from layer {vector_dataset['VECTORLayerlabel']}")
-                        
-                        magnitude_2d = math.sqrt(east_disp ** 2 + north_disp ** 2)
-                    
-                        magnitude_3d = math.sqrt(magnitude_2d ** 2 + vertical_disp ** 2)
-                    
-                        beta = -1 * math.atan(vertical_disp / magnitude_2d)
-                        
-                        magnitude = magnitude_3d * 0.001 # Convert to meters
-
-                        projection = east_disp * normalized_direction_vector.x() + north_disp * normalized_direction_vector.y()
-
-                        # Calculate the angle of the vector
-                        alpha = math.atan2(magnitude_2d, vertical_disp)
-                        #alpha = math.atan2(north_disp, east_disp)
-
-                        
-                        start_point_coords = QgsPoint(line_start_point.x(), line_start_point.y())
-                        feature_coords = feature.geometry().asPoint()
-                        distance = start_point_coords.distance(QgsPoint(feature_coords[0], feature_coords[1]))
-                    
-
-                        perpendicular_component = magnitude - projection
-
-
-                        # Check if the coordinates already exist in the set 
-                        coordinates = feature.geometry().asPoint()
-                        if coordinates in unique_coordinates:
-                            continue  # Skip adding duplicate coordinates
-
-                        unique_coordinates.add(coordinates)  # Add coordinates to the set to mark them as seen
-
-                        # Store information about the vector
-                        vector_buffer_data.append({
-                        'LayerName': key,
-                        'FieldName': key,
-                        'FieldValue': feature[key] if key in feature.fields().names() else None,
-                        'Coordinates': feature.geometry().asPoint(),
-                        'Magnitude': magnitude,
-                        'Projection': projection,
-                        'PerpendicularComponent': math.degrees(alpha), #perpendicular_component,
-                        'Distance': distance,
-                        'Beta': beta,
-                        'label': vector_label_field,
-                        'color': vector_layer_color
-                    })
-
-
-                    
-
-                    if not vector_layer:
-                        #print(f"Couldn't find a vector layer named {layer_name} in the project.")
-                        continue
-
-                vector_layer.removeSelection()  # Clear previous selections
-            
-
-
-            # Looping through the radar datset
-            else:
-                print(f' insar 2d data is given')
-                self.east_layer_name = vector_dataset.get('Eastlayer', self.east_layer_field)
-                self.east_layer_field = vector_dataset.get('Eastlayer', self.east_layer_field)
-                self.north_layer_field = vector_dataset.get('NorthLayer', self.north_layer_field)
-                self.vertical_layer_field = vector_dataset.get('VerticalLayer', self.vertical_layer_field)
-                self.vector_layer_label = vector_dataset.get('VECTORLayerlabel', self.vector_layer_label)
-                self.vector_layer_color = vector_dataset.get('VECTIRcolor', self.vector_layer_color)
-                self.vector_layer_bufferRadius = vector_dataset.get('BufferRadius', self.vector_layer_bufferRadius)
-                self.vector_layer_cell_number = vector_dataset.get('CellNumber', self.vector_layer_cell_number)
-
-
-                print(f' east layer name:{self.east_layer_name}')
-                print(f' vertical layer name:{self.vertical_layer_field}')
-                 # Get the number of segments to divide the line into, based on available data
-                segment_count = int(float(vector_dataset.get('CellNumber', 5)))  # Default to 5 if not specified
-                segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(), segment_count + 1)]
-                print(f"number of segments: {segment_count}")
-
-                # Initialize a list to store the vector data for each segment
-                vector_data = []
-
-                for i in range(len(segments) - 1):
-                    #feature = None  # Initialize feature outside the loop
-                    if i == 0:
-                        cumulative_distance = 0
-                    else:
-                        # Add the length of the previous segment to the cumulative distance
-                        previous_segment_length = segments[i].distance(segments[i - 1])
-                        cumulative_distance += previous_segment_length
-
-
-
-                    # Create a segment geometry from two points
-                    segment_start = segments[i].asPoint()
-                    segment_end = segments[i + 1].asPoint()
-                            # Convert QgsPointXY to QgsPoint
-                    segment_start_point = QgsPoint(segment_start.x(), segment_start.y())
-                    segment_end_point = QgsPoint(segment_end.x(), segment_end.y())
-
-                    segment_geometry = QgsGeometry.fromPolyline([segment_start_point, segment_end_point])
-                    
-
-
-                    # Assuming segment_start and segment_end are QgsPoint or similar objects
-                    midpoint_x = (segment_start.x() + segment_end.x()) / 2
-                    midpoint_y = (segment_start.y() + segment_end.y()) / 2
-                    midpoint = QgsPoint(midpoint_x, midpoint_y)
-
-                    # Buffer the segment
-                    segment_buffer_radius = float(vector_dataset.get('BufferRadius', 0.0))  # Default to 0.0 if not specified
-                    segment_buffer_geometry = segment_geometry.buffer(segment_buffer_radius, 0)
-
-                    # Find potential matches within the buffer
-                    east_vector_layer_name = self.east_layer_name  # or however you get your layer name
-                    east_vector_layer = QgsProject.instance().mapLayersByName(east_vector_layer_name)[0] if QgsProject.instance().mapLayersByName(east_vector_layer_name) else None
-
-                    vertical_vector_layer_name = self.vertical_layer_field  # or however you get your layer name
-                    vertical_vector_layer = QgsProject.instance().mapLayersByName(vertical_vector_layer_name)[0] if QgsProject.instance().mapLayersByName(vertical_vector_layer_name) else None
-
-                    if east_vector_layer and vertical_vector_layer:
-                        east_spatial_index = QgsSpatialIndex(east_vector_layer.getFeatures())
-                        east_potential_segment_matches = east_spatial_index.intersects(segment_buffer_geometry.boundingBox())
-
-                        vertical_spatial_index = QgsSpatialIndex(vertical_vector_layer.getFeatures())
-                        vertical_potential_segment_matches = vertical_spatial_index.intersects(segment_buffer_geometry.boundingBox())
-
-                        # Initialize variables to calculate the average
-                        sum_east_values = 0
-                        sum_vertical_values = 0
-                        count_features = 0
-
-                        # Iterate through potential matches for east values
-                        for feature_id in east_potential_segment_matches:
-                            feature = east_vector_layer.getFeature(feature_id)
-                            if segment_buffer_geometry.intersects(feature.geometry()):
-                                sum_east_values += feature[vector_dataset['EASTfield']]
-                                count_features += 1
-
-                        # Iterate through potential matches for vertical values
-                        for feature_id in vertical_potential_segment_matches:
-                            feature = vertical_vector_layer.getFeature(feature_id)
-                            if segment_buffer_geometry.intersects(feature.geometry()):
-                                sum_vertical_values += feature[vector_dataset['VerticalField']]
-                                count_features += 1
-
-                        if count_features > 0:
-                            average_east_value = sum_east_values / count_features
-                            average_vertical_value = sum_vertical_values / count_features
-                            # ... rest of your code that uses average_east_value and average_vertical_value
-                        else:
-                            print(f"No features found in segment {i}, skipping calculations for this segment.")
-                            continue  # Skip the rest of the loop for this segment if no features are found
-
-
-
-                    if average_east_value == 0:
-                        average_east_value = 0.00001
-
-                    if average_vertical_value == 0:
-                        average_vertical_value = 0.00001
-
-                    print(f'average_east_value for segment {i}: {average_east_value}')
-                    print(f'average_vertical_value for segment {i}: {average_vertical_value}')
-                    #distance = start_point_coords.distance(QgsPoint(feature_coords[0], feature_coords[1]))
-                    feature_coords = feature.geometry().asPoint()
-                    distance = midpoint.distance(QgsPoint(feature_coords[0], feature_coords[1]))
-                    magnitude_2d = math.sqrt(average_east_value **2 + 0)
-                    magnitude_3d = math.sqrt(magnitude_2d **2 + average_east_value **2)
-
-                    magnitude = magnitude_3d * 0.001 # Convert to meters
-
-                    alpha = 1 if average_east_value > 0 else -1
-                    
-                    beta = -1 * math.atan(average_vertical_value/magnitude_2d)
-
-                    
-
-                    print('average vertical value: {average_vertical_value}')
-
-                    print(f' distance: {distance}')
-                    print(f' magnitude: {magnitude}')
-                    los_vectors_data = []
-                    # Append vector information for this segment
-                    if abs(magnitude) > 0.001:
-                        vector_buffer_data.append({
-                            'segment_start_point': segment_start,
-                            'segment_end_point': segment_end,
-                            'Magnitude': magnitude,
-                            'PerpendicularComponent': alpha,
-                            'Distance': cumulative_distance,
-                            'Beta': beta,
-                            'Coordinates': midpoint,
-                            'Direction': math.atan2(average_vertical_value, average_east_value),  # Direction of the vector
-                            'label': vector_dataset.get('VECTORLabelField', f'Vector {i+1}'),  # Label for the vector
-                            'color': vector_dataset.get('VECTIRcolor', 'default_color'),  # Color for the vector representation
-                            # Add any other relevant information here
-                        })
-
-
-                print(f"vector data: {vector_data}")
-
-
-
-        # looping through the line of sight datasets
-        for los_dataset in los_datasets:
-            
-            self.los_layer_name = los_dataset.get('LOSlayer', self.los_layer_name)
-            self.los_field_name = los_dataset.get('LOSfield', self.los_field_name)
-            self.los_layer_color = los_dataset.get('LOScolor', self.los_layer_color)
-            self.los_layer_bufferRadius = los_dataset.get('BufferRadius', self.los_layer_bufferRadius)
-            self.los_layer_cell_number = los_dataset.get('LOSBufferCellSize', self.los_layer_cell_number)
-            self.los_layer_label = los_dataset.get('LOSlabel', self.los_layer_label)
-            self.los_layer_dip_angle = los_dataset.get('Dip_Angle', self.los_layer_dip_angle)
-            self.los_layer_dipd_angle = los_dataset.get('DipD_Angle', self.los_layer_dipd_angle)
-
-
-            dip = np.radians(float(los_dataset.get('Dip_angle', 0.0)))
-            dipd = np.radians(float(los_dataset.get('DipD_angle', 0.0)))
-            #print(f"los dip: {dip}")
-            #print(f"los dipd: {dipd}")
-            buffer_radius = float(los_dataset.get('LOSBufferRadius', 0.0))
-            #print(f"los buffer_radius: {buffer_radius}")
-            los_buffer_geometry = line_geometry.buffer(buffer_radius, 0)
-
-            # Inside the loop for los_datasets, after creating los_buffer_geometry
-            #self.segment_length = line_geometry.length() / 5  # Divide line length into 5 segments
-            #print(f" number of segmentssssss: {self.los_layer_cell_number}")
-            self.segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(),int(float(self.los_layer_cell_number)))]  # Creates 6 points dividing the line into 5 segments
-
-            
-            los_layer_name = self.los_layer_name  # Assuming you have the layer name directly in self.los_layer_name
-
-            if not los_layer_name:
-                print("No value found for los_layer_name. Skipping...")
-                continue
-
-            los_layer = QgsProject.instance().mapLayersByName(los_layer_name)
-            print(f"los_layer: {los_layer}")
-            
-            if not los_layer:
-                print(f"Couldn't find a 'los' layer named {los_layer_name} in the project. Skipping...")
-                continue
-
-            los_layer = los_layer[0]
-            
-            los_layer.removeSelection()
-            #print(f"los_layer: {los_layer}")
-            
-            spatial_index = QgsSpatialIndex(los_layer.getFeatures())
-
-            print(f'number of featuers in the layer: {los_layer.featureCount()}')
-
-            segment_averages = []  # This will store the average values for each segment
-            feature = None  # Initialize feature outside the loop
-            
-            for i in range(len(self.segments) - 1):
-                # Create a segment geometry from two points
-                segment_geometry = QgsGeometry.fromPolyline([QgsPoint(self.segments[i].asPoint()), QgsPoint(self.segments[i+1].asPoint())])
-
-
-                # Buffer the segment
-                segment_buffer_geometry = segment_geometry.buffer(buffer_radius, 0)
-                # Now you can find potential matches for each segment as you did for the entire buffer
-                potential_segment_matches = spatial_index.intersects(segment_buffer_geometry.boundingBox())
-                #print(f"len(potential_segment_matchesssssssss): {len(potential_segment_matches)}")
-                print(f'potential segment matches numerber: {len(potential_segment_matches)}')
-
-                sum_values = 0
-                count_features = 0
-                for feature_id in potential_segment_matches:
-
-                    feature = los_layer.getFeature(feature_id)
-                    if segment_buffer_geometry.intersects(feature.geometry()):
-                        sum_values += feature[los_dataset['LOSfield']]  # Replace 'data_field' with the actual field name
-                        count_features += 1
-
-                
-                # Calculate average and store it
-                average_value = round(sum_values / count_features, 2) if count_features else 0
-                segment_averages.append(average_value)
-
-                los_vectors_data = []
-                fixed_angle = math.radians(60)
-
-                print(f"segment averages: {segment_averages}")
-                for i, segment_average in enumerate(segment_averages):
-                    # Use the segment_average as the magnitude
-                    magnitude = segment_average
-                    
-                    # Calculate the direction of the vector
-                    beta = dip
-                    
-                   # Calculate the coordinates of the vector's start and end points along the cross-section line
-                    segment_start_point = self.segments[i].asPoint()  # Start point of the segment
-                    segment_end_point = self.segments[i + 1].asPoint()  # End point of the segment
-                    #print(f"hereeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
-                    #print(f"feature: {feature}")
-                    start_point_coords = QgsPoint(segment_start_point.x(), segment_start_point.y())
-                    feature_coords = feature.geometry().asPoint()
-                    distance = start_point_coords.distance(QgsPoint(feature_coords[0], feature_coords[1]))
-                
-                    if abs(magnitude) > 15:
-                        # Store information about the vector
-                        los_vectors_data.append({
-                            'Magnitude': magnitude,
-                            'Dip': beta,
-                            'DipDirection': dipd,
-                            'Distance':  distance,  # Use the midpoint as the distance
-                            'label': f'LOS {i+1}',  # You can use a meaningful label
-                            'segment_start_point': segment_start_point,
-                            'segment_end_point': segment_end_point,
-                            'color': self.los_layer_color,
-                        })
-                #print(f"los vectors data: {los_vectors_data}")
-
-                #print(f"segment_averagesssssss: {segment_averages}")
-
-
-            potential_matches = spatial_index.intersects(los_buffer_geometry.boundingBox())
-
-            #print(f"number of potential matches: {len(potential_matches)}")
-            
-            # Filter the potential matches
-            for feature_id in potential_matches:
-                feature = los_layer.getFeature(feature_id)
-                if los_buffer_geometry.intersects(feature.geometry()):
-                    los_layer.selectByIds([feature.id()], QgsVectorLayer.AddToSelection)
-
-            selected_features = los_layer.selectedFeatures()
-
-            #print(f"Selected {len(selected_features)} features from layer {los_layer_name} within buffer radius {buffer_radius} m")
-
-
-            # Step 8: Iterate through LOS datasets
-        
-
-
-            # Step after your existing code - Create a new vector layer
-
-
-
-        # Get the current CRS from the QGIS project
-        current_crs = QgsProject.instance().crs().authid()
-
-        # Create a new vector layer with the geometry type as a line and the current CRS
-        layer_type = "LineString"
-        line_layer = QgsVectorLayer(f"{layer_type}?crs={current_crs}", "Temporary Line Layer", "memory")
-
-        # Define the fields for the new layer - adjust these as needed
-        fields = QgsFields()
-        fields.append(QgsField("id", QVariant.Int))
-        fields.append(QgsField("name", QVariant.String))
-        
-        # Start editing the layer
-        line_layer.startEditing()
-        line_layer.dataProvider().addAttributes(fields)
-        line_layer.updateFields()
-
-        # Create a new feature with the line geometry
-        feature = QgsFeature()
-        feature.setGeometry(line_geometry)
-        feature.setAttributes([1, "Line Feature"])  # Set feature attributes if needed
-
-        # Add the feature to the layer
-        line_layer.dataProvider().addFeature(feature)
-        line_layer.commitChanges()  # Save the changes to the provider
-
-        # Add the layer to the QGIS interface without saving to disk
-        QgsProject.instance().addMapLayer(line_layer)
-
-        self.plot_cross_section(distances, elevations, xml_file_path, vector_buffer_data, los_vectors_data, line_geometry, line_start_point, line_end_point, line_direction_vector, self.segments)
-
-        #return segment_length, segments
-     
-
-
-
     
     def lineDrawn(self, line_geometry):
-        self.handle_line_geometry(line_geometry)
+        
+        if not line_geometry:
+            self.handle_line_geometry(line_geometry)
+
         print("Step 0: Line Drawn")
         # Compute the Direction and Normal Vectors of the Profile Line
         line_start_point = line_geometry.asPolyline()[0]
@@ -1378,14 +879,14 @@ class CrossVectors:
         # Add the layer to the QGIS interface without saving to disk
         QgsProject.instance().addMapLayer(line_layer)
 
-        self.plot_cross_section(distances, elevations, xml_file_path, vector_buffer_data, los_vectors_data, line_geometry, line_start_point, line_end_point, line_direction_vector, self.segments)
+        self.plot_cross_section(distances, elevations, vector_buffer_data, los_vectors_data)
 
         #return segment_length, segments
      
 
 
 
-    def plot_cross_section(self, distances, elevations, xml_file_path, vectors_data, los_vectors_data, line_geometry, line_start_point, line_end_point, line_direction_vector, segments):
+    def plot_cross_section(self, distances, elevations, vectors_data, los_vectors_data ):
         #print("Plotting cross section...")
         #print(los_vectors_data)
         fig, ax = plt.subplots(figsize=(12, 6))
@@ -1798,3 +1299,306 @@ class CrossVectors:
         for feature in line_layer.getFeatures():
             line_geometry = feature.geometry()
             self.handle_line_geometry(line_geometry)
+
+
+
+    def process_vector_datasets(self, vector_datasets, line_geometry):
+        vector_buffer_data = []
+        normalized_direction_vector = self.calculate_normalized_direction(line_geometry)
+        
+        # Step 5: Iterate through vector datasets
+        for vector_dataset in vector_datasets:
+
+            cell_number = vector_dataset.get('CellNumber')
+            if isinstance(cell_number, str):
+                cell_number = float(cell_number)
+            print(f'vector dataset cellnumber: {vector_dataset.get("CellNumber")} ')
+            print(f' cellnumber type: {type(vector_dataset.get("CellNumber"))}')
+
+            
+            # Looping through the inSAR dataset
+            if cell_number == 0:
+                print(' cell number = 0, priesm data is given')
+                #Check for field names in the vector dataset and store them
+                self.east_layer_field = vector_dataset.get('Eastlayer', self.east_layer_field)
+                self.north_layer_field = vector_dataset.get('NorthLayer', self.north_layer_field)
+                self.vertical_layer_field = vector_dataset.get('VerticalLayer', self.vertical_layer_field)
+                self.vector_layer_label = vector_dataset.get('VECTORLayerlabel', self.vector_layer_label)
+                self.vector_layer_color = vector_dataset.get('VECTIRcolor', self.vector_layer_color)
+                self.vector_layer_bufferRadius = vector_dataset.get('BufferRadius', self.vector_layer_bufferRadius)
+                self.vector_layer_cell_number = vector_dataset.get('CellNumber', self.vector_layer_cell_number)
+                
+                #print(f"vector_dataset labellll: {vector_dataset.get('VECTORLayerlabel')}")
+
+                buffer_radius = vector_dataset.get('BufferRadius', 0.0)  # Retrieve the buffer radius from the vector dataset
+
+                # Step 6: Create a buffer geometry around the drawn line
+                buffer_geometry = line_geometry.buffer(buffer_radius, 0)  # Adjust buffer radius and segments as needed
+                #print(f"Step 6: Buffer geometry created with radius {buffer_radius}")
+
+                # Step 7: Iterate through layers specified in the XML for this vector dataset
+                layer_keys = [self.east_layer_field, self.north_layer_field, self.vertical_layer_field]
+                #print(f"layer keys: {layer_keys} from dataset {vector_dataset}")
+                for key in layer_keys:
+                    #print(f"vector key: {key}")
+                    if not key:
+                        # Handle the case when the key doesn't exist or has an empty value
+                        print(f"No value found for key {key}. Skipping...")
+                        continue
+
+
+                    # Get the QgsVectorLayer object corresponding to the layer name
+                    vector_layer = QgsProject.instance().mapLayersByName(key)
+                    #print(f" key: {key}")
+                    if not vector_layer:
+                        print(f"Couldn't find a vector layer named {key} in the project.")
+                        continue
+                    
+                    vector_layer = vector_layer[0]  # Assuming you want the first matching layer
+
+                    # Create a spatial index for the vector layer
+                    spatial_index = QgsSpatialIndex(vector_layer.getFeatures())
+
+                    # Use the spatial index to find potential matches
+                    potential_matches = spatial_index.intersects(buffer_geometry.boundingBox())
+                    #print(f"potential matches: {potential_matches}")
+                    # Filter the potential matches
+                    for feature_id in potential_matches:
+                        feature = vector_layer.getFeature(feature_id)
+                        if buffer_geometry.intersects(feature.geometry()):
+                            # vector_layer.select(feature.id())
+                            vector_layer.selectByIds([feature.id()], QgsVectorLayer.AddToSelection)
+
+                    # Get the selected features and process them
+                    selected_features = vector_layer.selectedFeatures()
+                    print(f"selected features: {vector_layer}")
+
+
+                    # Iterate through the selected features
+                   
+                    for feature in selected_features:
+                        east_disp = feature[vector_dataset['EASTfield']]
+                        north_disp = feature[vector_dataset['NorthField']]
+                        vertical_disp = feature[vector_dataset['VerticalField']]
+                        vector_label_field=feature[vector_dataset['VECTORLabelField']]
+                        vector_layer_color=vector_dataset['VECTIRcolor']
+                        #print(f" selected a feature from layer {vector_dataset['VECTORLayerlabel']}")
+                        
+                        magnitude_2d = math.sqrt(east_disp ** 2 + north_disp ** 2)
+                    
+                        magnitude_3d = math.sqrt(magnitude_2d ** 2 + vertical_disp ** 2)
+                    
+                        beta = -1 * math.atan(vertical_disp / magnitude_2d)
+                        
+                        magnitude = magnitude_3d * 0.001 # Convert to meters
+
+                        projection = east_disp * normalized_direction_vector.x() + north_disp * normalized_direction_vector.y()
+
+                        # Calculate the angle of the vector
+                        alpha = math.atan2(magnitude_2d, vertical_disp)
+                        #alpha = math.atan2(north_disp, east_disp)
+
+                        
+                        start_point_coords = QgsPoint(line_start_point.x(), line_start_point.y())
+                        feature_coords = feature.geometry().asPoint()
+                        distance = start_point_coords.distance(QgsPoint(feature_coords[0], feature_coords[1]))
+                    
+
+                        perpendicular_component = magnitude - projection
+
+
+                        # Check if the coordinates already exist in the set 
+                        coordinates = feature.geometry().asPoint()
+                        if coordinates in unique_coordinates:
+                            continue  # Skip adding duplicate coordinates
+
+                        unique_coordinates.add(coordinates)  # Add coordinates to the set to mark them as seen
+
+                        # Store information about the vector
+                        vector_buffer_data.append({
+                        'LayerName': key,
+                        'FieldName': key,
+                        'FieldValue': feature[key] if key in feature.fields().names() else None,
+                        'Coordinates': feature.geometry().asPoint(),
+                        'Magnitude': magnitude,
+                        'Projection': projection,
+                        'PerpendicularComponent': math.degrees(alpha), #perpendicular_component,
+                        'Distance': distance,
+                        'Beta': beta,
+                        'label': vector_label_field,
+                        'color': vector_layer_color
+                    })
+
+
+                    
+
+                    if not vector_layer:
+                        #print(f"Couldn't find a vector layer named {layer_name} in the project.")
+                        continue
+
+                vector_layer.removeSelection()  # Clear previous selections
+            
+
+
+            # Looping through the radar datset
+            else:
+                print(f' insar 2d data is given')
+                self.east_layer_name = vector_dataset.get('Eastlayer', self.east_layer_field)
+                self.east_layer_field = vector_dataset.get('Eastlayer', self.east_layer_field)
+                self.north_layer_field = vector_dataset.get('NorthLayer', self.north_layer_field)
+                self.vertical_layer_field = vector_dataset.get('VerticalLayer', self.vertical_layer_field)
+                self.vector_layer_label = vector_dataset.get('VECTORLayerlabel', self.vector_layer_label)
+                self.vector_layer_color = vector_dataset.get('VECTIRcolor', self.vector_layer_color)
+                self.vector_layer_bufferRadius = vector_dataset.get('BufferRadius', self.vector_layer_bufferRadius)
+                self.vector_layer_cell_number = vector_dataset.get('CellNumber', self.vector_layer_cell_number)
+
+
+                print(f' east layer name:{self.east_layer_name}')
+                print(f' vertical layer name:{self.vertical_layer_field}')
+                 # Get the number of segments to divide the line into, based on available data
+                segment_count = int(float(vector_dataset.get('CellNumber', 5)))  # Default to 5 if not specified
+                segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(), segment_count + 1)]
+                print(f"number of segments: {segment_count}")
+
+                # Initialize a list to store the vector data for each segment
+                vector_data = []
+
+                for i in range(len(segments) - 1):
+                    #feature = None  # Initialize feature outside the loop
+                    if i == 0:
+                        cumulative_distance = 0
+                    else:
+                        # Add the length of the previous segment to the cumulative distance
+                        previous_segment_length = segments[i].distance(segments[i - 1])
+                        cumulative_distance += previous_segment_length
+
+
+
+                    # Create a segment geometry from two points
+                    segment_start = segments[i].asPoint()
+                    segment_end = segments[i + 1].asPoint()
+                            # Convert QgsPointXY to QgsPoint
+                    segment_start_point = QgsPoint(segment_start.x(), segment_start.y())
+                    segment_end_point = QgsPoint(segment_end.x(), segment_end.y())
+
+                    segment_geometry = QgsGeometry.fromPolyline([segment_start_point, segment_end_point])
+                    
+
+
+                    # Assuming segment_start and segment_end are QgsPoint or similar objects
+                    midpoint_x = (segment_start.x() + segment_end.x()) / 2
+                    midpoint_y = (segment_start.y() + segment_end.y()) / 2
+                    midpoint = QgsPoint(midpoint_x, midpoint_y)
+
+                    # Buffer the segment
+                    segment_buffer_radius = float(vector_dataset.get('BufferRadius', 0.0))  # Default to 0.0 if not specified
+                    segment_buffer_geometry = segment_geometry.buffer(segment_buffer_radius, 0)
+
+                    # Find potential matches within the buffer
+                    east_vector_layer_name = self.east_layer_name  # or however you get your layer name
+                    east_vector_layer = QgsProject.instance().mapLayersByName(east_vector_layer_name)[0] if QgsProject.instance().mapLayersByName(east_vector_layer_name) else None
+
+                    vertical_vector_layer_name = self.vertical_layer_field  # or however you get your layer name
+                    vertical_vector_layer = QgsProject.instance().mapLayersByName(vertical_vector_layer_name)[0] if QgsProject.instance().mapLayersByName(vertical_vector_layer_name) else None
+
+                    if east_vector_layer and vertical_vector_layer:
+                        east_spatial_index = QgsSpatialIndex(east_vector_layer.getFeatures())
+                        east_potential_segment_matches = east_spatial_index.intersects(segment_buffer_geometry.boundingBox())
+
+                        vertical_spatial_index = QgsSpatialIndex(vertical_vector_layer.getFeatures())
+                        vertical_potential_segment_matches = vertical_spatial_index.intersects(segment_buffer_geometry.boundingBox())
+
+                        # Initialize variables to calculate the average
+                        sum_east_values = 0
+                        sum_vertical_values = 0
+                        count_features = 0
+
+                        # Iterate through potential matches for east values
+                        for feature_id in east_potential_segment_matches:
+                            feature = east_vector_layer.getFeature(feature_id)
+                            if segment_buffer_geometry.intersects(feature.geometry()):
+                                sum_east_values += feature[vector_dataset['EASTfield']]
+                                count_features += 1
+
+                        # Iterate through potential matches for vertical values
+                        for feature_id in vertical_potential_segment_matches:
+                            feature = vertical_vector_layer.getFeature(feature_id)
+                            if segment_buffer_geometry.intersects(feature.geometry()):
+                                sum_vertical_values += feature[vector_dataset['VerticalField']]
+                                count_features += 1
+
+                        if count_features > 0:
+                            average_east_value = sum_east_values / count_features
+                            average_vertical_value = sum_vertical_values / count_features
+                            # ... rest of your code that uses average_east_value and average_vertical_value
+                        else:
+                            print(f"No features found in segment {i}, skipping calculations for this segment.")
+                            continue  # Skip the rest of the loop for this segment if no features are found
+
+
+
+                    if average_east_value == 0:
+                        average_east_value = 0.00001
+
+                    if average_vertical_value == 0:
+                        average_vertical_value = 0.00001
+
+                    print(f'average_east_value for segment {i}: {average_east_value}')
+                    print(f'average_vertical_value for segment {i}: {average_vertical_value}')
+                    #distance = start_point_coords.distance(QgsPoint(feature_coords[0], feature_coords[1]))
+                    feature_coords = feature.geometry().asPoint()
+                    distance = midpoint.distance(QgsPoint(feature_coords[0], feature_coords[1]))
+                    magnitude_2d = math.sqrt(average_east_value **2 + 0)
+                    magnitude_3d = math.sqrt(magnitude_2d **2 + average_east_value **2)
+
+                    magnitude = magnitude_3d * 0.001 # Convert to meters
+
+                    alpha = 1 if average_east_value > 0 else -1
+                    
+                    beta = -1 * math.atan(average_vertical_value/magnitude_2d)
+
+                    
+
+                    print('average vertical value: {average_vertical_value}')
+
+                    print(f' distance: {distance}')
+                    print(f' magnitude: {magnitude}')
+                    los_vectors_data = []
+                    # Append vector information for this segment
+                    if abs(magnitude) > 0.001:
+                        vector_buffer_data.append({
+                            'segment_start_point': segment_start,
+                            'segment_end_point': segment_end,
+                            'Magnitude': magnitude,
+                            'PerpendicularComponent': alpha,
+                            'Distance': cumulative_distance,
+                            'Beta': beta,
+                            'Coordinates': midpoint,
+                            'Direction': math.atan2(average_vertical_value, average_east_value),  # Direction of the vector
+                            'label': vector_dataset.get('VECTORLabelField', f'Vector {i+1}'),  # Label for the vector
+                            'color': vector_dataset.get('VECTIRcolor', 'default_color'),  # Color for the vector representation
+                            # Add any other relevant information here
+                        })
+
+
+                print(f"vector data: {vector_data}")
+        los_vectors_data = []
+        return vector_buffer_data, los_vectors_data
+    
+
+
+    
+    def calculate_normalized_direction(self, line_geometry):
+        # Handle MultiLineString geometry
+        if line_geometry.isMultipart():
+            # If it's a MultiLineString, merge it into a single LineString (or handle differently if needed)
+            line_geometry = line_geometry.mergeLines()
+
+        line_start_point = line_geometry.asPolyline()[0]
+        line_end_point = line_geometry.asPolyline()[-1]
+        line_direction_vector = QgsVector(line_end_point.x() - line_start_point.x(), line_end_point.y() - line_start_point.y())
+
+        # Normalize the direction vector
+        magnitude = math.sqrt(line_direction_vector.x()**2 + line_direction_vector.y()**2)
+        normalized_direction_vector = QgsVector(line_direction_vector.x() / magnitude, line_direction_vector.y() / magnitude)
+        return normalized_direction_vector
