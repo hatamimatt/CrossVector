@@ -191,7 +191,7 @@ class CrossVectors:
 
 
     def handle_line_geometry(self, line_geometry):
-
+        print(f'handle_line_geometry method running')
         if self.dtm_layer:
             distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
 
@@ -389,14 +389,15 @@ class CrossVectors:
 
     
     def lineDrawn(self, line_geometry):
-        
+                # Compute the Direction and Normal Vectors of the Profile Line
+        line_start_point = line_geometry.asPolyline()[0]
+        line_end_point = line_geometry.asPolyline()[-1]
+
         if not line_geometry:
             self.handle_line_geometry(line_geometry)
 
         print("Step 0: Line Drawn")
-        # Compute the Direction and Normal Vectors of the Profile Line
-        line_start_point = line_geometry.asPolyline()[0]
-        line_end_point = line_geometry.asPolyline()[-1]
+
         line_direction_vector = QgsVector(line_end_point.x() - line_start_point.x(), line_end_point.y() - line_start_point.y())
 
         # Normalize the direction vector
@@ -1303,9 +1304,18 @@ class CrossVectors:
 
 
     def process_vector_datasets(self, vector_datasets, line_geometry):
+
+
+        line_start_point = line_geometry.asPolyline()[0]
+        line_end_point = line_geometry.asPolyline()[-1]
+
+        print(f' process_vector_datasets method running here')
         vector_buffer_data = []
         normalized_direction_vector = self.calculate_normalized_direction(line_geometry)
-        
+        unique_coordinates = set()
+        vector_buffer_data = []  # List to hold data for points within the buffer
+        los_buffer_data = []  # List to hold data for points within the buffer
+        los_vectors_data = []
         # Step 5: Iterate through vector datasets
         for vector_dataset in vector_datasets:
 
