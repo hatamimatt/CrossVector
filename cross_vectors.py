@@ -661,7 +661,9 @@ class CrossVectors:
 
                         if count_features > 0:
                             average_east_value = sum_east_values / count_features
+                            print(f'average_east_value: {average_east_value}')
                             average_vertical_value = sum_vertical_values / count_features
+                            print(f'average_vertical_value: {average_vertical_value}')
                             # ... rest of your code that uses average_east_value and average_vertical_value
                         else:
                             print(f"No features found in segment {i}, skipping calculations for this segment.")
@@ -681,7 +683,7 @@ class CrossVectors:
                     feature_coords = feature.geometry().asPoint()
                     distance = midpoint.distance(QgsPoint(feature_coords[0], feature_coords[1]))
                     magnitude_2d = math.sqrt(average_east_value **2 + 0)
-                    magnitude_3d = math.sqrt(magnitude_2d **2 + average_east_value **2)
+                    magnitude_3d = math.sqrt(magnitude_2d **2 + average_vertical_value **2)
 
                     magnitude = magnitude_3d * 0.001 # Convert to meters
 
@@ -1033,16 +1035,16 @@ class CrossVectors:
 
             horizontal_component = magnitude_3d * math.cos(beta) * 1
             vertical_component = magnitude_3d * math.sin(beta) * 1
-            print('beta: ', beta)
+            #print('beta: ', beta)
 
 
             #if beta > 0:
             #    horizontal_component = -1 * horizontal_component
 
             if isinstance(vector['Coordinates'], QgsPoint):
-                print('prependicular component', +  vector['PerpendicularComponent'])
+               # print('prependicular component', +  vector['PerpendicularComponent'])
                 if vector['PerpendicularComponent'] < 0:
-                    print('modifying horizontal value')
+                   # print('modifying horizontal value')
                     horizontal_component = -1 * magnitude_3d * math.cos(beta) * 1
                 
 
@@ -1089,7 +1091,8 @@ class CrossVectors:
             
             
             if isinstance(vector['Coordinates'], QgsPoint):
-                print('we are not printing labels bcz its inSAR 2D')
+               # print('we are not printing labels bcz its inSAR 2D')
+               pass
             elif hasattr(vector['Coordinates'], '__getitem__'): 
                 ax.text(
                     label_x,
@@ -1326,8 +1329,8 @@ class CrossVectors:
             cell_number = vector_dataset.get('CellNumber')
             if isinstance(cell_number, str):
                 cell_number = float(cell_number)
-            print(f'vector dataset cellnumber: {vector_dataset.get("CellNumber")} ')
-            print(f' cellnumber type: {type(vector_dataset.get("CellNumber"))}')
+          #  print(f'vector dataset cellnumber: {vector_dataset.get("CellNumber")} ')
+           # print(f' cellnumber type: {type(vector_dataset.get("CellNumber"))}')
 
             
             # Looping through the inSAR dataset
@@ -1385,7 +1388,7 @@ class CrossVectors:
 
                     # Get the selected features and process them
                     selected_features = vector_layer.selectedFeatures()
-                    print(f"selected features: {vector_layer}")
+                   # print(f"selected features: {vector_layer}")
 
 
                     # Iterate through the selected features
