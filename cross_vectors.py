@@ -39,7 +39,7 @@ from qgis.core import QgsFeatureRequest
 from qgis.core import QgsDistanceArea
 from qgis.core import QgsFields, QgsFeature, QgsVectorLayer, QgsProject, QgsField, QgsGeometry, QgsPoint
 
-
+import pandas as pd 
 import matplotlib.pyplot as plt
 import xml.etree.ElementTree as ET
 import math
@@ -52,6 +52,8 @@ from matplotlib.lines import Line2D  # Import Line2D from matplotlib lines
 
 
 from .xml_parser import parse_xml  # Import the parse_xml function
+from .landslide_intersections import printTest as printTest
+from .landslide_intersections import calculate_landslide_intersections as calculate_landslide_intersections
 
 # .
 from qgis.core import QgsProject  # Add this import statement
@@ -189,7 +191,36 @@ class CrossVectors:
             line_geometry = feature.geometry()  
             self.handle_line_geometry(line_geometry)    
 
+    '''
+    def handle_line_geometry(self, line_geometry):
+        print(f'handle_line_geometry method running')
+        if self.dtm_layer:
+            distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
 
+        # Step 1: Getting elevation data
+        distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
+
+        # Step 2: Parse the XML file for vector and LOS datasets
+        dtm_layers, los_datasets, vector_datasets = parse_xml(self.combined_datasets_file_path)
+
+        # Step 3: Process Vector and LOS datasets
+        #vector_buffer_data, los_vectors_data = self.process_vector_datasets(vector_datasets, line_geometry)
+        #los_vectors_data = self.process_los_datasets(los_datasets, line_geometry)
+
+
+        vector_buffer_data, _ = self.process_vector_datasets(vector_datasets, line_geometry)
+        los_vectors_data = self.process_los_datasets(los_datasets, line_geometry)
+
+        # Step 4: Plot cross-section
+        print(f'step 4 distance: {distances}')
+        print(f'elevation: {elevations}')
+        self.plot_cross_section(distances, elevations, vector_buffer_data, los_vectors_data)
+
+    '''
+
+
+
+    
     def handle_line_geometry(self, line_geometry):
         print(f'handle_line_geometry method running')
         if self.dtm_layer:
@@ -211,6 +242,10 @@ class CrossVectors:
 
         # Step 4: Plot cross-section
         self.plot_cross_section(distances, elevations, vector_buffer_data, los_vectors_data)
+
+
+
+
 
 
 
@@ -413,6 +448,8 @@ class CrossVectors:
 
         # Step 1: Getting elevation data
         distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
+        print(f'distance: {distances}')
+        print(f'elevation: {elevations}')
         #print("Step 1: Elevation data retrieved")
 
         # Step 2: Get the XML file path from your configuration
@@ -1004,7 +1041,7 @@ class CrossVectors:
 
         # Plotting vectors
         usable_vectors_data = []
-
+        extracted_data = []
         for vector in vectors_data:
             #print(f"vectors data to draw circular surface from: {vectors_data}")
             #ax.plot(vector['Coordinates'][0], vector['Coordinates'][1], 'ro', label='vector coordinate')
@@ -1084,8 +1121,19 @@ class CrossVectors:
                 'start_angle': start_angle_degrees,  # Added start angle in degrees
                 'end_angle': end_angle_degrees,  # Added end angle in degrees
             })
+
+
+            x = vector['Coordinates'][0]
+            y = vector['Coordinates'][1]
+            angle = math.degrees(vector['Beta'])  # Converting the angle from radians to degrees
+            length = vector['Magnitude']
+            extracted_data.append({'x': x, 'y': y, 'angle': angle, 'length': length})
+
             
-            usable_vectors_data = sorted(usable_vectors_data, key=lambda v: v['Coordinates'][0])
+            # Integration of the code developed by Caterina
+            
+
+              # usable_vectors_data = sorted(usable_vectors_data, key=lambda v: v['Coordinates'][0])
             #print(f"usable vectors data: {usable_vectors_data}")
             #ax.plot(x, y, 'ro', label='vector coordinate')
             
@@ -1105,7 +1153,11 @@ class CrossVectors:
                 )
             
             # adding legends
-
+        df = pd.DataFrame(extracted_data)
+        #print('df for caterina: {df}')
+        printTest(f' this is priniting with landslide intersections being called from within cross vectors: {df}')
+        calculate_landslide_intersections(df, None, "Foot", 0)  
+        ##### Integration of Caterina's code
       
         for vector_dataset in self.vector_datasets:
              #Check for field names in the vector dataset and store them
@@ -1119,122 +1171,6 @@ class CrossVectors:
             custom_legend.append(Line2D([0], [0], color= self.vector_layer_color, lw=1, label = self.vector_layer_label))  # Custom legend entry for red vectors
             legend_labels.append(self.vector_layer_label)
             #print(f"adding vector legend")
-
-
-
-        '''
-        # usable_vectors_data
-        ########## the arcs implementation
-        def calculate_normal(vectors):
-            """
-            Calculate the normal to a given vector in 2D.
-            Args:
-            - vector: A 2D vector (array-like)
-
-            Returns:
-            - A 2D unit vector normal to the input vector
-            """
-            normal = np.array([-vector[1], vector[0]])
-            norm = np.linalg.norm(normal)
-            if norm == 0: 
-                return normal
-            return normal / norm
-        
-
-
-        def calculate_circle_center(p1, p2, d1, d2):
-            """
-            Calculate the center of the circle from the intersection of normals.
-            Args:
-            - p1, p2: The points where the normals are anchored (array-like)
-            - d1, d2: The directions of the normals (array-like)
-
-            Returns:
-            - The coordinates of the center of the circle (x, y)
-            """
-            # Coefficients of the lines (A1x + B1y = C1 and A2x + B2y = C2)
-            A1, B1 = d1
-            A2, B2 = d2
-            C1 = A1*p1[0] + B1*p1[1]
-            C2 = A2*p2[0] + B2*p2[1]
-
-            # Solve the system of equations to find the intersection
-            matrix = np.array([[A1, B1], [A2, B2]])
-            const = np.array([C1, C2])
-            
-            # Check if the lines are parallel
-            if np.linalg.matrix_rank(matrix) < 2:
-                return None
-            
-            intersection = np.linalg.solve(matrix, const)
-            return intersection
-        
-
-        def find_arc_intersection(center, radius, p1, d1):
-            """
-            Find the intersection between the circle and the normal.
-            Args:
-            - center: The center of the circle (array-like)
-            - radius: The radius of the circle (float)
-            - p1: The point where the normal is anchored (array-like)
-            - d1: The direction of the normal (array-like)
-
-            Returns:
-            - The coordinates of the intersection point on the circle (x, y)
-            """
-            # Line: p1 + t * d1
-            # Circle: (x - center_x)^2 + (y - center_y)^2 = radius^2
-            # We substitute the line equation into the circle equation and solve for t
-            t = np.roots([
-                d1[0]**2 + d1[1]**2,
-                2 * (d1[0] * (p1[0] - center[0]) + d1[1] * (p1[1] - center[1])),
-                (p1[0] - center[0])**2 + (p1[1] - center[1])**2 - radius**2
-            ])
-
-            # We only consider the real solutions
-            t = np.real(t[np.isreal(t)])
-            
-            # There can be two points of intersection, so we select the one further along the normal's direction
-            intersection_points = [p1 + t_val * d1 for t_val in t]
-            if d1[0] != 0:  # Avoid division by zero
-                chosen_point = max(intersection_points, key=lambda point: point[0]*d1[0])
-            else:
-                chosen_point = max(intersection_points, key=lambda point: point[1]*d1[1])
-            
-            return chosen_point
-
-
-
-
-        def plot_vectors_and_arcs(points, vectors):
-            """
-            Plot vectors and arcs derived from their normals.
-            Args:
-            - points: The starting points of the vectors (list of tuples or arrays)
-            - vectors: The vectors (list of tuples or arrays)
-            """
-            # Plotting the vectors
-            for point, vector in zip(points, vectors):
-                plt.quiver(*point, *vector, scale=1, scale_units='xy', angles='xy')
-
-            # Plotting the arcs derived from normals
-            for i in range(len(points) - 1):
-                normal1 = calculate_normal(vectors[i])
-                normal2 = calculate_normal(vectors[i+1])
-                center = calculate_circle_center(points[i], points[i+1], normal1, normal2)
-                if center is not None:
-                    radius = np.linalg.norm(points[i] - center)
-                    intersection = find_arc_intersection(center, radius, points[i], normal1)
-                    arc = plt.Circle(center, radius, fill=False, color='red', linestyle='--')
-                    plt.gca().add_patch(arc)
-                    plt.plot(*intersection, 'ro')  # Intersection point
-
-            plt.axis('equal')
-            plt.show()
-
-        ########## the arcs implementation
-        '''
-
 
 
         ax.plot(distances, elevations, label='Cross Section', color='black', linewidth=1)
@@ -1299,7 +1235,7 @@ class CrossVectors:
                 elevation = result[1]
                 elevations.append(elevation)
             distance += distance_interval
-
+    
         return distances, elevations
 
 
@@ -1311,10 +1247,15 @@ class CrossVectors:
 
 
     def process_vector_datasets(self, vector_datasets, line_geometry):
+        if line_geometry.isMultipart():
+            # Extracts the first line string from the multi-line string
+            line_string = line_geometry.asMultiPolyline()[0]
+        else:
+            line_string = line_geometry.asPolyline()
 
+        line_start_point = line_string[0]
+        line_end_point = line_string[-1]
 
-        line_start_point = line_geometry.asPolyline()[0]
-        line_end_point = line_geometry.asPolyline()[-1]
 
         print(f' process_vector_datasets method running here')
         vector_buffer_data = []
@@ -1606,8 +1547,16 @@ class CrossVectors:
     def process_los_datasets(self, los_datasets, line_geometry):
         los_vectors_data = []
         normalized_direction_vector = self.calculate_normalized_direction(line_geometry)
-        line_start_point = line_geometry.asPolyline()[0]
+        if line_geometry.isMultipart():
+            # Extracts the first line string from the multi-line string
+            line_string = line_geometry.asMultiPolyline()[0]
+        else:
+            line_string = line_geometry.asPolyline()
 
+        line_start_point = line_string[0]
+        line_end_point = line_string[-1]
+
+       
         # looping through the line of sight datasets
         for los_dataset in los_datasets:
             
@@ -1767,21 +1716,3 @@ class CrossVectors:
         return normalized_direction_vector
 
 
-
-
-    '''
-    def calculate_normalized_direction(self, line_geometry):
-        # Handle MultiLineString geometry
-        if line_geometry.isMultipart():
-            # If it's a MultiLineString, merge it into a single LineString (or handle differently if needed)
-            line_geometry = line_geometry.mergeLines()
-
-        line_start_point = line_geometry.asPolyline()[0]
-        line_end_point = line_geometry.asPolyline()[-1]
-        line_direction_vector = QgsVector(line_end_point.x() - line_start_point.x(), line_end_point.y() - line_start_point.y())
-
-        # Normalize the direction vector
-        magnitude = math.sqrt(line_direction_vector.x()**2 + line_direction_vector.y()**2)
-        normalized_direction_vector = QgsVector(line_direction_vector.x() / magnitude, line_direction_vector.y() / magnitude)
-        return normalized_direction_vector
-    '''
