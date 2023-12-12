@@ -89,9 +89,11 @@ def prepare_data(
     """
     # Sort the data by the y coordinate
     data = data.sort_values(
-        by="y", ascending=(selected_position == "Foot"), ignore_index=True
+        by="x", ascending=(selected_position == "Foot"), ignore_index=True
     )
 
+    
+    print(f' data being printed from displacement vectors utils after being sorted on x: {data}')
     # Filter the data by the selected rows, if any
     if selected_rows is not None:
         data = data.iloc[selected_rows].reset_index(drop=True)

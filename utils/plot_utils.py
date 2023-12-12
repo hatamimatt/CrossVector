@@ -97,7 +97,7 @@ def plot_surface(xy_r_list):
     """
     for i, xy_r in enumerate(xy_r_list):
         if i == 0:
-            plt.plot(xy_r[0], xy_r[1], "m-", color = 'black', label="Surface")
+            plt.plot(xy_r[0], xy_r[1], "m-", label="Surface")
         else:
             plt.plot(xy_r[0], xy_r[1], "m-")
 

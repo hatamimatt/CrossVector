@@ -60,7 +60,7 @@ def plot_all(output):
         # Plot circle centers
         plot.plot_circle_centers(x_center, y_center)
         # Plot surface
-        print(f'xyrlist: {xy_r_list}')
+        #print(f'xyrlist: {xy_r_list}')
         plot.plot_surface(xy_r_list)
         # Plot construction lines
         plot.plot_construction_lines(

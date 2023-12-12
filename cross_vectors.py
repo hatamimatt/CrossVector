@@ -91,8 +91,14 @@ class CrossVectors:
             application at run time.
         :type iface: QgsInterface
         """
-        
-        self.plot_surface=False
+        # values for passing plot surface input from geocrossvectors to crossvectors
+        self.plot_surface=None 
+        self.SelectedPosition = None
+        self.SelectedRows = None
+        self.KnownPositionIndex = None 
+
+
+
         # Declare instance attributes for storing data
         self.dtm_layers = []
         self.los_datasets = []
@@ -163,8 +169,14 @@ class CrossVectors:
 
 
 
-    def start(self, dtm_layer=None, line_layer=None, plot_surface=None):
+    def start(self, dtm_layer=None, line_layer=None, plot_surface=None, SelectedPosition=None, SelectedRows=None, KnownPositionIndex=None):
         self.plot_surface = plot_surface
+        self.SelectedPosition = SelectedPosition
+        self.SelectedRows = SelectedRows
+        self.KnownPositionIndex = KnownPositionIndex
+        print(f' self.SelectedRows: {self.SelectedRows}')
+        print(f' self.SelectedPosition: {self.SelectedPosition}')
+        print(f' self.KnownPositionIndex: {self.KnownPositionIndex}')
         self.dtm_layer = dtm_layer
         if line_layer:
             self.process_line_layer(line_layer)
@@ -1168,13 +1180,14 @@ class CrossVectors:
             
             # adding legends
         df = pd.DataFrame(extracted_data)
-        #print('df for caterina: {df}')
-        #printTest(f' this is priniting with landslide intersections being called from within cross vectors: {df}')
+        print('df for caterina: {df}')
+        printTest(f' this is priniting with landslide intersections being called from within cross vectors: {df}')
         
 
 
         if self.plot_surface:
-            output = calculate_landslide_intersections(df, None , "Foot", 0) 
+
+            output = calculate_landslide_intersections(df, self.SelectedRows , self.SelectedPosition, self.KnownPositionIndex) 
             print(f'plot_surface from cross_vectors plutting function: {self.plot_surface}')
             plot_all(output)
         ##### Integration of Caterina's code
@@ -1195,6 +1208,7 @@ class CrossVectors:
 
         ax.plot(distances, elevations, label='Cross Section', color='black', linewidth=1)
         # Create a custom legend with labels for the blue line and red lines
+
         custom_legend.append(Line2D([0], [0], color='black', lw=2, label='10 cm'))  # Custom legend entry for red vectors]
         legend_labels.append('scale line')
         #print(custom_legend)
