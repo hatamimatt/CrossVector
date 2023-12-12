@@ -33,7 +33,8 @@ from dateutil.parser import parse as parse_date
 from typing import List, Union, Dict
 
 #from .utils import math_utils as math
-from .math_utils import math
+
+from . import math_utils as math
 
 
 # Define a function to prepare the data for further calculations

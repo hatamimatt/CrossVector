@@ -54,8 +54,8 @@ from matplotlib.lines import Line2D  # Import Line2D from matplotlib lines
 from .xml_parser import parse_xml  # Import the parse_xml function
 from .landslide_intersections import printTest as printTest
 from .landslide_intersections import calculate_landslide_intersections as calculate_landslide_intersections
+from .utils.plott_all import plot_all
 
-# .
 from qgis.core import QgsProject  # Add this import statement
 
 from .line_draw_tool import LineDrawTool
@@ -92,7 +92,7 @@ class CrossVectors:
         :type iface: QgsInterface
         """
         
-        
+        self.plot_surface=False
         # Declare instance attributes for storing data
         self.dtm_layers = []
         self.los_datasets = []
@@ -163,7 +163,8 @@ class CrossVectors:
 
 
 
-    def start(self, dtm_layer=None, line_layer=None):
+    def start(self, dtm_layer=None, line_layer=None, plot_surface=None):
+        self.plot_surface = plot_surface
         self.dtm_layer = dtm_layer
         if line_layer:
             self.process_line_layer(line_layer)
@@ -448,8 +449,8 @@ class CrossVectors:
 
         # Step 1: Getting elevation data
         distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
-        print(f'distance: {distances}')
-        print(f'elevation: {elevations}')
+        #print(f'distance: {distances}')
+        #print(f'elevation: {elevations}')
         #print("Step 1: Elevation data retrieved")
 
         # Step 2: Get the XML file path from your configuration
@@ -1109,25 +1110,38 @@ class CrossVectors:
 
             x, y = vector['Coordinates'].x() - delta_x , vector['Coordinates'].y()-delta_y 
 
+
             # Assuming beta is in radians and you want to convert it to degrees for the angles
             start_angle_degrees = math.degrees(beta)
             end_angle_degrees = start_angle_degrees  # Assuming end_angle is the same as start_angle
 
-
+            '''
             usable_vectors_data.append({
-                'Coordinates': (x, y),  # Now the coordinates are a tuple
+                'Coordinates': (x-start_x, y-start_y),  # Now the coordinates are a tuple
                 'PerpendicularComponent': vector['PerpendicularComponent'],
                 'label': vector_label_field,        
                 'start_angle': start_angle_degrees,  # Added start angle in degrees
                 'end_angle': end_angle_degrees,  # Added end angle in degrees
             })
+            '''
+
+            if isinstance(vector['Coordinates'], QgsPoint):
+                
+                x = vector['Coordinates'].x() 
+                y = vector['Coordinates'].y() 
+            # Check if 'Coordinates' is subscriptable (like a tuple, list, or a QgsPointXY)
+            elif hasattr(vector['Coordinates'], '__getitem__'): 
+                x = vector['Coordinates'][0]
+                y = vector['Coordinates'][1] 
 
 
-            x = vector['Coordinates'][0]
-            y = vector['Coordinates'][1]
+
+
+            #x = vector['Coordinates'][0]
+            #y = vector['Coordinates'][1]
             angle = math.degrees(vector['Beta'])  # Converting the angle from radians to degrees
             length = vector['Magnitude']
-            extracted_data.append({'x': x, 'y': y, 'angle': angle, 'length': length})
+            extracted_data.append({'x': x - delta_x, 'y': y - delta_y , 'angle': angle, 'length': length})
 
             
             # Integration of the code developed by Caterina
@@ -1155,8 +1169,14 @@ class CrossVectors:
             # adding legends
         df = pd.DataFrame(extracted_data)
         #print('df for caterina: {df}')
-        printTest(f' this is priniting with landslide intersections being called from within cross vectors: {df}')
-        calculate_landslide_intersections(df, None, "Foot", 0)  
+        #printTest(f' this is priniting with landslide intersections being called from within cross vectors: {df}')
+        
+
+
+        if self.plot_surface:
+            output = calculate_landslide_intersections(df, None , "Foot", 0) 
+            print(f'plot_surface from cross_vectors plutting function: {self.plot_surface}')
+            plot_all(output)
         ##### Integration of Caterina's code
       
         for vector_dataset in self.vector_datasets:

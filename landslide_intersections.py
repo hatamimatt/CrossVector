@@ -80,6 +80,9 @@ def calculate_landslide_intersections(
        [11.        , 21.        ]]), array([[13.        , 13.        ],
        [13.        , 23.        ]])], 'x_solution_values': [10.0, 11.0, 13.0], 'y_solution_values': [20.0, 21.0, 23.0]}
     """
+
+    #test if running
+    print(f' landslide_intersection is being run at this stage')
     # Prepare data
     preprocessed_data = dv.prepare_data(
         data, selected_rows, selected_position, known_position_index, impute_angle

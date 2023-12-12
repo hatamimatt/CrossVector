@@ -5,7 +5,7 @@ The script is a collection of Python functions designed to visualize data relate
 import matplotlib.pyplot as plt
 import numpy as np
 
-from utils.math_utils import *
+from .math_utils import *
 
 
 def plot_known_point(x, y, known_position_index):
@@ -97,7 +97,7 @@ def plot_surface(xy_r_list):
     """
     for i, xy_r in enumerate(xy_r_list):
         if i == 0:
-            plt.plot(xy_r[0], xy_r[1], "m-", label="Surface")
+            plt.plot(xy_r[0], xy_r[1], "m-", color = 'black', label="Surface")
         else:
             plt.plot(xy_r[0], xy_r[1], "m-")
 

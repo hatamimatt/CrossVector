@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from utils import plot_utils as plot
+from . import plot_utils as plot
 
 
 def plot_all(output):
@@ -47,7 +47,7 @@ def plot_all(output):
     x_construction_lines = output["x_construction_lines"]
     y_construction_lines = output["y_construction_lines"]
     intersection_order = output["intersection_order"]
-
+    
     # Plot known point
     plot.plot_known_point(x, y, known_position_index)
     # Plot vector locations
@@ -60,6 +60,7 @@ def plot_all(output):
         # Plot circle centers
         plot.plot_circle_centers(x_center, y_center)
         # Plot surface
+        print(f'xyrlist: {xy_r_list}')
         plot.plot_surface(xy_r_list)
         # Plot construction lines
         plot.plot_construction_lines(
@@ -72,6 +73,7 @@ def plot_all(output):
         # Plot intersections
         plot.plot_intersections(x_intersection, y_intersection)
     else:
+        print('no circle centers found')
         # No circle centers found
         pass
 
@@ -85,5 +87,5 @@ def plot_all(output):
         x_center_plot,
         y_center_plot,
     )
-    # Show the plot
+    ## Show the plot
     plot.show_plot()
