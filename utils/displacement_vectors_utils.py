@@ -217,7 +217,7 @@ def calculate_coordinates(preprocessed_data: Dict[str, np.ndarray], selected_pos
     construction_lines = {}
 
     # Only proceed if there are circle centers
-    if circles:
+    if not math.check_empty_values(circles):
         # Calculate the trigonometric angles, the intersections and the construction lines
         linear_spaced_angles = math.calculate_trigonometric_angles(
             preprocessed_data, circles

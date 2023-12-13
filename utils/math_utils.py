@@ -10,6 +10,26 @@ import sympy
 from sympy import Eq, S, Symbol, linsolve, re, solve, solveset, sqrt, symbols, sympify
 
 
+def check_empty_values(dictionary):
+    """
+    This function checks if any value in a dictionary is empty.
+    
+    Parameters:
+    dictionary (dict): The dictionary to check.
+
+    Returns:
+    bool: True if any value in the dictionary is empty, False otherwise.
+    """
+    # Iterate over each key-value pair in the dictionary
+    for key, value in dictionary.items():
+        # Check if the value is empty
+        if len(value) == 0:
+            # If any value is empty, return True
+            return True
+    # If no value is empty, return False
+    return False
+    
+    
 def check_angles(df):
     """
     This function checks if the angles in a DataFrame are in descending order.
