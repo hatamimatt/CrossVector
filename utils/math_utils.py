@@ -10,6 +10,33 @@ import sympy
 from sympy import Eq, S, Symbol, linsolve, re, solve, solveset, sqrt, symbols, sympify
 
 
+def check_angles(df):
+    """
+    This function checks if the angles in a DataFrame are in descending order.
+    If not, it removes any row where the angle is greater than the next one.
+
+    Parameters:
+    df (pd.DataFrame): A DataFrame with at least two columns 'x' and 'angle'.
+
+    Returns:
+    df (pd.DataFrame): The DataFrame after removing rows where the angle is greater than the next one.
+    """
+
+    # Sort the DataFrame by 'x' in ascending order and reset the index
+    df = df.sort_values(by='x').reset_index(drop=True)
+
+    # Create a new column 'next_angle' that contains the next row's angle
+    df['next_angle'] = df['angle'].shift(-1)
+
+    # Drop any rows where the current angle is greater than the next one
+    df = df.drop(df[df['angle'] > df['next_angle']].index)
+
+    # Remove the 'next_angle' column
+    df = df.drop(columns=['next_angle'])
+
+    return df
+    
+
 def custom_solve(equations, variables):
     """
     This function solves a system of equations and handles complex solutions in a MATLAB-like manner.
