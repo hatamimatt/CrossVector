@@ -331,7 +331,7 @@ def calculate_trigonometric_angles(preprocessed_data, circles):
 
 
 def calculate_intersections(
-    preprocessed_data, circles, linear_spaced_angles, known_position
+    preprocessed_data, circles, linear_spaced_angles, selected_position
 ):
     """
     This function calculates the intersection points between circles and lines, where the circles represent the paths of motion and the lines represent the construction lines normal to the vectors.
@@ -346,7 +346,7 @@ def calculate_intersections(
     circles: A dictionary containing:
         x_center, y_center (list): Lists of x and y coordinates of the circle centers.
     linear_spaced_angles (list): List of trigonometric angles.
-    known_position (str): String indicating the known position ('head' or 'foot').
+    selected_position (str): String indicating the known position ('head' or 'foot').
 
     Returns:
     intersections: A dictionary containing:
@@ -426,7 +426,7 @@ def calculate_intersections(
         xy_r_list.append(xy_r)
 
         # Update intersection points
-        if known_position == "head":
+        if selected_position == "head":
             x_sol = xy_r[0][0]
             y_sol = xy_r[1][0]
         else:
@@ -495,7 +495,7 @@ def calculate_displacement_vectors(preprocessed_data):
 
 
 def calculate_construction_lines(
-    preprocessed_data, circles, intersections, known_position
+    preprocessed_data, circles, intersections, selected_position
 ):
     """
     Calculates the construction lines, which are dotted lines connecting the known point to the circle centers.
@@ -508,7 +508,7 @@ def calculate_construction_lines(
         y_center (list): The y-coordinates of the circle centers.
     intersections: A dictionary containing:
         x_intersection, y_intersection (list): List of x and y coordinates of the intersections.
-    known_position (str): String indicating the known position ('head' or 'foot').
+    selected_position (str): String indicating the known position ('head' or 'foot').
 
     Returns:
     construction_lines: A dictionary containing:
@@ -542,7 +542,7 @@ def calculate_construction_lines(
     intersection_order = list(range(len(x_construction_lines)))
 
     # If the known position is 'head', reverse the order
-    if known_position == "head":
+    if selected_position == "head":
         intersection_order = intersection_order[::-1]
 
     construction_lines = {

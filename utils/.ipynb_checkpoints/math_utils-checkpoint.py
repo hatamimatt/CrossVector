@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from numpy import real  # isclose,
+import sympy
 from sympy import Eq, S, Symbol, linsolve, re, solve, solveset, sqrt, symbols, sympify
 
 
@@ -54,26 +55,41 @@ def estimate_missing_vector(data, selected_position, known_position_index):
     Parameters:
     data (pd.DataFrame): The input data. It should have four columns: 'x', 'y', 'angle', and 'length'.
     selected_position (str): The known position ('Head' or 'Foot').
-    known_position_index (int): The index of the known intersection with the profile. 
+    known_position_index (int): The index of the known intersection with the profile.
 
     Returns:
     data (pd.DataFrame): The output data with updated angle of the first vector.
     """
     # Extract the x, y, and angle from the data frame
-    x, y, angle = [data[col].to_numpy() for col in ['x', 'y', 'angle']]
+    x, y, angle = [data[col].to_numpy() for col in ["x", "y", "angle"]]
 
     # Define the first and second vectors as numpy arrays
     v1 = np.array([x[known_position_index], y[known_position_index]])
-    v2 = np.array([x[known_position_index + (-1)**(selected_position=='Foot')] - x[known_position_index], y[known_position_index + (-1)**(selected_position=='Foot')] - y[known_position_index]])
-    
+    v2 = np.array(
+        [
+            x[known_position_index + (-1) ** (selected_position == "Foot")]
+            - x[known_position_index],
+            y[known_position_index + (-1) ** (selected_position == "Foot")]
+            - y[known_position_index],
+        ]
+    )
+
     # Calculate the angle between the vectors using the dot product and the arccosine function
-    angle = np.degrees(np.arccos(np.dot(v1, v2) / np.linalg.norm(v1) / np.linalg.norm(v2)))
+    angle = np.degrees(
+        np.arccos(np.dot(v1, v2) / np.linalg.norm(v1) / np.linalg.norm(v2))
+    )
     # Handle the case when the denominator is close to zero or the angle is greater than 90 degrees
-    angle = 0 if np.isclose(np.linalg.norm(v1) * np.linalg.norm(v2), 0) else angle - 90 if angle > 90 else angle
-    
+    angle = (
+        0
+        if np.isclose(np.linalg.norm(v1) * np.linalg.norm(v2), 0)
+        else angle - 90
+        if angle > 90
+        else angle
+    )
+
     # Update the data frame with the new angle of the first vector
     data.loc[known_position_index, "angle"] = angle
-    
+
     # Return the data frame
     return data
 
@@ -238,9 +254,9 @@ def calculate_circle_centers(preprocessed_data):
         x_center, y_center: Lists of x and y coordinates of the circle centers.
     """
     # Unpack the preprocessed_data dictionary
-    x = preprocessed_data['x_filtered']
-    y = preprocessed_data['y_filtered']
-    m = preprocessed_data['m_filtered']
+    x = preprocessed_data["x_filtered"]
+    y = preprocessed_data["y_filtered"]
+    m = preprocessed_data["m_filtered"]
 
     # Define the symbols
     xtmp, ytmp = symbols("x y")
@@ -263,10 +279,7 @@ def calculate_circle_centers(preprocessed_data):
         y_center.append(float(sol[ytmp]))
 
     # Create a dictionary
-    circles={
-        'x_center': x_center,
-        'y_center': y_center
-    }
+    circles = {"x_center": x_center, "y_center": y_center}
 
     return circles
 
@@ -285,11 +298,11 @@ def calculate_trigonometric_angles(preprocessed_data, circles):
     linear_spaced_angles: List of linearly spaced angles between the first and second angle.
     """
     # Unpack the preprocessed_data and the circles dictionaries
-    x = preprocessed_data['x_filtered']
-    y = preprocessed_data['y_filtered']
-    x_center = circles['x_center']
-    y_center = circles['y_center']
-    
+    x = preprocessed_data["x_filtered"]
+    y = preprocessed_data["y_filtered"]
+    x_center = circles["x_center"]
+    y_center = circles["y_center"]
+
     # Calculate the difference between x and x_center, and y and y_center
     x_difference = np.array(x[:-1]) - np.array(x_center)
     y_difference = np.array(y[:-1]) - np.array(y_center)
@@ -317,7 +330,9 @@ def calculate_trigonometric_angles(preprocessed_data, circles):
     return linear_spaced_angles
 
 
-def calculate_intersections(preprocessed_data, circles, linear_spaced_angles, known_position):
+def calculate_intersections(
+    preprocessed_data, circles, linear_spaced_angles, selected_position
+):
     """
     This function calculates the intersection points between circles and lines, where the circles represent the paths of motion and the lines represent the construction lines normal to the vectors.
     The code then defines the starting x and y coordinates and filters the data based on the known position index.
@@ -327,11 +342,11 @@ def calculate_intersections(preprocessed_data, circles, linear_spaced_angles, kn
     preprocessed_data: A dictionary containg:
         x, y (list): Lists of x and y coordinates of the vectors locations.
         m (list): List of slopes of the construction lines.
-        beta (list): List of vector inclinations.     
+        beta (list): List of vector inclinations.
     circles: A dictionary containing:
         x_center, y_center (list): Lists of x and y coordinates of the circle centers.
     linear_spaced_angles (list): List of trigonometric angles.
-    known_position (str): String indicating the known position ('head' or 'foot').
+    selected_position (str): String indicating the known position ('head' or 'foot').
 
     Returns:
     intersections: A dictionary containing:
@@ -341,12 +356,12 @@ def calculate_intersections(preprocessed_data, circles, linear_spaced_angles, kn
         x_solution_values, y_solution_values (list): List of x and y coordinates of the solutions.
     """
     # Unpack the preprocessed_data and the circles dictionaries
-    x = preprocessed_data['x_filtered']
-    y = preprocessed_data['y_filtered']
-    m = preprocessed_data['m_filtered']
-    beta = preprocessed_data['beta_filtered']
-    x_center = circles['x_center']
-    y_center = circles['y_center']
+    x = preprocessed_data["x_filtered"]
+    y = preprocessed_data["y_filtered"]
+    m = preprocessed_data["m_filtered"]
+    beta = preprocessed_data["beta_filtered"]
+    x_center = circles["x_center"]
+    y_center = circles["y_center"]
 
     # Define the starting x and y coordinates
     known_x = x[0]
@@ -411,7 +426,7 @@ def calculate_intersections(preprocessed_data, circles, linear_spaced_angles, kn
         xy_r_list.append(xy_r)
 
         # Update intersection points
-        if known_position == "head":
+        if selected_position == "head":
             x_sol = xy_r[0][0]
             y_sol = xy_r[1][0]
         else:
@@ -454,11 +469,11 @@ def calculate_displacement_vectors(preprocessed_data):
         end_x_displacement, end_y_displacement (list): The lists of coordinates of ending point for the displacement vectors
     """
     # Unpack the preprocessed_data dictionary
-    x = preprocessed_data['x']
-    y = preprocessed_data['y']
-    alpha = preprocessed_data['alpha']
-    length = preprocessed_data['length']
-    
+    x = preprocessed_data["x"]
+    y = preprocessed_data["y"]
+    alpha = preprocessed_data["alpha"]
+    length = preprocessed_data["length"]
+
     deg = convert_alfa_to_trig(alpha)
     len_arr = 1 * length
     end_x_displacement = []
@@ -471,15 +486,17 @@ def calculate_displacement_vectors(preprocessed_data):
         end_x_displacement.append(ex)
         end_y_displacement.append(ey)
 
-    displacements={
-        'end_x_displacement': end_x_displacement,
-        'end_y_displacement': end_y_displacement
+    displacements = {
+        "end_x_displacement": end_x_displacement,
+        "end_y_displacement": end_y_displacement,
     }
 
     return displacements
 
 
-def calculate_construction_lines(preprocessed_data, circles, intersections, known_position):
+def calculate_construction_lines(
+    preprocessed_data, circles, intersections, selected_position
+):
     """
     Calculates the construction lines, which are dotted lines connecting the known point to the circle centers.
 
@@ -491,23 +508,22 @@ def calculate_construction_lines(preprocessed_data, circles, intersections, know
         y_center (list): The y-coordinates of the circle centers.
     intersections: A dictionary containing:
         x_intersection, y_intersection (list): List of x and y coordinates of the intersections.
-    known_position (str): String indicating the known position ('head' or 'foot').
-    known_position_index (int): Index of the known intersection with the profile (default is 0).
+    selected_position (str): String indicating the known position ('head' or 'foot').
 
     Returns:
     construction_lines: A dictionary containing:
         x_center_plot, y_center_plot (list): Lists of x and y coordinates of the circle centers positions for the construction lines.
         x_construction_lines, y_construction_lines (list): Lists of x and y coordinates of the intersections for the construction lines.
         intersection_order (list): List of indices that represent the order of the intersections.
-    """    
+    """
     # Unpack the preprocessed_data and the circles dictionaries
-    x = preprocessed_data['x_filtered']
-    y = preprocessed_data['y_filtered']
-    x_center = circles['x_center']
-    y_center = circles['y_center']
-    x_intersection = intersections['x_intersection']
-    y_intersection = intersections['y_intersection']
-    
+    x = preprocessed_data["x_filtered"]
+    y = preprocessed_data["y_filtered"]
+    x_center = circles["x_center"]
+    y_center = circles["y_center"]
+    x_intersection = intersections["x_intersection"]
+    y_intersection = intersections["y_intersection"]
+
     # print(f'!! HERE I AM !! {len(x_center)}')
     if len(x_center) > 1:
         # Extend x_center and y_center with their last element
@@ -526,7 +542,7 @@ def calculate_construction_lines(preprocessed_data, circles, intersections, know
     intersection_order = list(range(len(x_construction_lines)))
 
     # If the known position is 'head', reverse the order
-    if known_position == "head":
+    if selected_position == "head":
         intersection_order = intersection_order[::-1]
 
     construction_lines = {

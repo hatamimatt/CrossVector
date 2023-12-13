@@ -178,7 +178,7 @@ def prepare_data(
 
 
 # Define a function to calculate the coordinates of the circles and lines
-def calculate_coordinates(preprocessed_data: Dict[str, np.ndarray], known_position: str) -> Dict[str, Union[List[float], List[np.ndarray]]]:
+def calculate_coordinates(preprocessed_data: Dict[str, np.ndarray], selected_position: str) -> Dict[str, Union[List[float], List[np.ndarray]]]:
     """
     Calculates the coordinates of the circles and lines, where the circles represent the paths of motion and the lines represent the construction lines normal to the vectors.
 
@@ -186,7 +186,7 @@ def calculate_coordinates(preprocessed_data: Dict[str, np.ndarray], known_positi
     ----------
     preprocessed_data : dict
         A dictionary that contains the output values of the prepare_data function.
-    known_position : str
+    selected_position : str
         The known position ('Head' or 'Foot').
 
     Returns
@@ -204,8 +204,8 @@ def calculate_coordinates(preprocessed_data: Dict[str, np.ndarray], known_positi
     Examples
     --------
     >>> preprocessed_data = {'x': array([10, 12, 15]), 'y': array([20, 22, 25]), 'alpha': array([30, 40, 50]), 'x_filtered': array([10, 12, 15]), 'y_filtered': array([20, 22, 25]), 'alpha_filtered': array([30, 40, 50]), 'beta_filtered': array([210, 220, 230]), 'm_filtered': array([-0.57735027, -0.36397023, -0.26794919])}
-    >>> known_position = 'Foot'
-    >>> calculate_coordinates(preprocessed_data, known_position)
+    >>> selected_position = 'Foot'
+    >>> calculate_coordinates(preprocessed_data, selected_position)
     {'x_center': [10.0, 11.0...
     """
     # Calculate the circle centers and the displacement vectors
@@ -223,10 +223,10 @@ def calculate_coordinates(preprocessed_data: Dict[str, np.ndarray], known_positi
             preprocessed_data, circles
         )
         intersections = math.calculate_intersections(
-            preprocessed_data, circles, linear_spaced_angles, known_position
+            preprocessed_data, circles, linear_spaced_angles, selected_position
         )
         construction_lines = math.calculate_construction_lines(
-            preprocessed_data, circles, intersections, known_position
+            preprocessed_data, circles, intersections, selected_position
         )
 
     # Return the coordinates as a dictionary
