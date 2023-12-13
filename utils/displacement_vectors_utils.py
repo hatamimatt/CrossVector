@@ -98,7 +98,12 @@ def prepare_data(
     print(f' data being printed from displacement vectors utils after being sorted on x: {data}')
     # Filter the data by the selected rows, if any
     if selected_rows is not None:
-        data = data.iloc[selected_rows].reset_index(drop=True)
+            # Check if any selected row is out of bounds
+        if max(selected_rows) >= len(data):
+            print("Error: One or more selected rows are out of bounds.")
+            pass
+        else:
+            data = data.iloc[selected_rows].reset_index(drop=True)
 
     # Estimate the length of the first or last vector, if needed
     if np.isnan(data.length[known_position_index]):
