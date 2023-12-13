@@ -87,6 +87,9 @@ def prepare_data(
     >>> prepare_data(data, selected_rows, selected_position, known_position_index, impute_angle)
     {'x': array([10, 12, 15]), 'y': array([20, 22, 25]), 'alpha': array([30, 40, 50]), 'x_filtered': array([10, 12, 15]), 'y_filtered': array([20, 22, 25]), 'alpha_filtered': array([30, 40, 50]), 'beta_filtered': array([210, 220, 230]), 'm_filtered': array([-0.57735027, -0.36397023, -0.26794919])}
     """
+    # Check if the angles are descending
+    data=math.check_angles(data)
+    
     # Sort the data by the y coordinate
     data = data.sort_values(
         by="x", ascending=(selected_position == "Head"), ignore_index=True
