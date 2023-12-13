@@ -26,7 +26,6 @@ from .utils import displacement_vectors_utils as dv
 
 def printTest(input):
     print(input)
-    
 
 
 def calculate_landslide_intersections(
@@ -83,6 +82,7 @@ def calculate_landslide_intersections(
 
     #test if running
     print(f' landslide_intersection is being run at this stage')
+    
     # Prepare data
     preprocessed_data = dv.prepare_data(
         data, selected_rows, selected_position, known_position_index, impute_angle
@@ -97,7 +97,7 @@ def calculate_landslide_intersections(
         **coordinates,
     }
     
-    if output["x_intersection"]:
+    if "x_intersection" in output:
         # Get the known point and the started point from the output dictionary
         known_point_x = (
             output["x"][0] if selected_position == "Head" else output["x"][-1]
