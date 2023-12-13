@@ -8,8 +8,8 @@ Finally, the function sets the plot limits based on the provided data and displa
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-from utils import plot_utils as plot
+#from  .plot_utils import plot_utils as plot 
+from . import plot_utils as plot
 
 
 def plot_all(output):
