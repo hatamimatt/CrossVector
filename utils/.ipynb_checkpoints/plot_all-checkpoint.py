@@ -35,18 +35,19 @@ def plot_all(output):
     y = output["y"]
     x_center = output["x_center"]
     y_center = output["y_center"]
-    x_intersection = output["x_intersection"]
-    y_intersection = output["y_intersection"]
-    xy_r_list = output["xy_r_list"]
-    x_solution_values = output["x_solution_values"]
-    y_solution_values = output["y_solution_values"]
     end_x_displacement = output["end_x_displacement"]
     end_y_displacement = output["end_y_displacement"]
-    x_center_plot = output["x_center_plot"]
-    y_center_plot = output["y_center_plot"]
-    x_construction_lines = output["x_construction_lines"]
-    y_construction_lines = output["y_construction_lines"]
-    intersection_order = output["intersection_order"]
+    if "x_intersection" in output:
+        x_intersection = output["x_intersection"]
+        y_intersection = output["y_intersection"]
+        xy_r_list = output["xy_r_list"]
+        x_solution_values = output["x_solution_values"]
+        y_solution_values = output["y_solution_values"]
+        x_center_plot = output["x_center_plot"]
+        y_center_plot = output["y_center_plot"]
+        x_construction_lines = output["x_construction_lines"]
+        y_construction_lines = output["y_construction_lines"]
+        intersection_order = output["intersection_order"]
 
     # Plot known point
     plot.plot_known_point(x, y, known_position_index)
@@ -73,7 +74,9 @@ def plot_all(output):
         plot.plot_intersections(x_intersection, y_intersection)
     else:
         # No circle centers found
-        pass
+        xy_r_list=[]
+        x_center_plot=[]
+        y_center_plot=[]
 
     # Set plot limits
     plot.set_plot_limits(
