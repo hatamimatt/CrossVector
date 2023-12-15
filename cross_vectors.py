@@ -242,7 +242,8 @@ class CrossVectors:
 
         # Step 1: Getting elevation data
         distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
-
+        #print(f'distancesss: {distances}')
+        #print(f'elevationsss: {elevations}')
         # Step 2: Parse the XML file for vector and LOS datasets
         dtm_layers, los_datasets, vector_datasets = parse_xml(self.combined_datasets_file_path)
 
@@ -462,8 +463,9 @@ class CrossVectors:
 
         # Step 1: Getting elevation data
         distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
-        #print(f'distance: {distances}')
-        #print(f'elevation: {elevations}')
+        print(f'distancesss: {distances}')
+        print(f'elevationsss: {elevations}')
+
         #print("Step 1: Elevation data retrieved")
 
         # Step 2: Get the XML file path from your configuration
@@ -1250,6 +1252,7 @@ class CrossVectors:
         # Get the length of the line
         length = line_geometry.length()
 
+        print(f'length: {length}')
         # List to hold elevation and distance values
         elevations = []
         distances = []
@@ -1260,6 +1263,8 @@ class CrossVectors:
 
         # Sample raster at equally spaced points along the line
         distance = 0
+        print(f'distance: {distance}')
+        print(f'length: {length}')
         while distance <= length:
             distances.append(distance)  # add this line
             point_on_line = line_geometry.interpolate(distance).asPoint()
