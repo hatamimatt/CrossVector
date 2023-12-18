@@ -1193,6 +1193,7 @@ class CrossVectors:
             output = calculate_landslide_intersections(df, self.SelectedRows , self.SelectedPosition, self.KnownPositionIndex) 
             print(f'plot_surface from cross_vectors plutting function: {self.plot_surface}')
             plot_all(output)
+            self.plot_surface = False
         ##### Integration of Caterina's code
       
         for vector_dataset in self.vector_datasets:
