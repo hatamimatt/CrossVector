@@ -21,64 +21,52 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.core import QgsPoint
 
-from qgis.core import QgsRasterLayer  # Import QgsRasterLayer for handling raster layers
-from qgis.core import QgsMapLayer
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
+# QGIS imports
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
-from qgis.gui import QgsMapToolEmitPoint
-from .line_draw_tool import LineDrawTool
-from qgis.core import QgsProject
-from functools import partial
-from qgis.core import QgsBilinearRasterResampler  # for bilinear resampling
-from qgis.core import QgsRasterLayer, QgsRaster
-from qgis.core import QgsProject
-from qgis.core import QgsFeatureRequest 
-from qgis.core import QgsDistanceArea
-from qgis.core import QgsFields, QgsFeature, QgsVectorLayer, QgsProject, QgsField, QgsGeometry, QgsPoint
+from qgis.core import (QgsPoint,
+                       QgsRasterLayer,
+                       QgsProject,
+                       QgsRasterLayer, 
+                       QgsRaster,
+                       QgsFields, 
+                       QgsFeature, 
+                       QgsVectorLayer, 
+                       QgsGeometry,
+                       QgsPointXY,
+                       QgsSpatialIndex,
+                       QgsVector
+)
+   
+from qgis.PyQt.QtCore import (QVariant,
+                              QSettings, 
+                              QTranslator, 
+                              QCoreApplication
+)
+                              
 
+
+
+# Third-party library imports
+import os.path
+import math
+import numpy as np
 import pandas as pd 
 import matplotlib.pyplot as plt
-import xml.etree.ElementTree as ET
-import math
-from qgis.core import QgsProject
-from matplotlib.patches import Rectangle
-from scipy.optimize import minimize
-from matplotlib.lines import Line2D  # Import Line2D from matplotlib lines
-#from .cross_vectors import segment_length, segments
+from matplotlib.lines import Line2D 
 
 
 
-from .xml_parser import parse_xml  # Import the parse_xml function
+# importing other modules and plugins
+from .xml_parser import parse_xml 
 from .landslide_intersections import printTest as printTest
 from .landslide_intersections import calculate_landslide_intersections as calculate_landslide_intersections
 from .utils.plott_all import plot_all
-
-
-from qgis.core import QgsProject  # Add this import statement
-
 from .line_draw_tool import LineDrawTool
-#from .plotting_fn import plot_cross_section
-
-
-# Initialize Qt resources from file resources.py
+from .line_draw_tool import LineDrawTool
 from .resources import *
-# Import the code for the dialog
-#from .cross_vectors_dialog import CrossVectorsDialog
-import os.path
-import xml.etree.ElementTree as ET
-from qgis.PyQt.QtCore import QVariant
-from qgis.PyQt.QtGui import QColor
-from qgis.core import QgsPointXY, QgsGeometry, QgsFeature, QgsField, QgsVectorLayer
-from qgis.PyQt.QtCore import pyqtSignal
-from qgis.core import QgsSpatialIndex
-import matplotlib.pyplot as plt
-import numpy as np
 
-import math
-from qgis.core import QgsVector
 
 
 class CrossVectors:
@@ -155,7 +143,6 @@ class CrossVectors:
             self.translator.load(locale_path)
             QCoreApplication.installTranslator(self.translator)
 
-        # Declare instance attributes
         self.actions = []
         self.menu = self.tr(u'&Cross Vectors')
 
@@ -175,9 +162,6 @@ class CrossVectors:
         self.SelectedPosition = SelectedPosition
         self.SelectedRows = SelectedRows
         self.KnownPositionIndex = KnownPositionIndex
-        print(f' self.SelectedRows: {self.SelectedRows}')
-        print(f' self.SelectedPosition: {self.SelectedPosition}')
-        print(f' self.KnownPositionIndex: {self.KnownPositionIndex}')
         self.dtm_layer = dtm_layer
         if line_layer:
             self.process_line_layer(line_layer)
