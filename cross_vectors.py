@@ -558,7 +558,8 @@ class CrossVectors:
                         'Distance': distance,
                         'Beta': beta,
                         'label': vector_label_field,
-                        'color': vector_layer_color
+                        'color': vector_layer_color,
+                        'vector_scale_factor': vector_dataset.get('VectorLayerScale')
                     })
 
 
@@ -582,6 +583,7 @@ class CrossVectors:
                 self.vector_layer_color = vector_dataset.get('VECTIRcolor', self.vector_layer_color)
                 self.vector_layer_bufferRadius = vector_dataset.get('BufferRadius', self.vector_layer_bufferRadius)
                 self.vector_layer_cell_number = vector_dataset.get('CellNumber', self.vector_layer_cell_number)
+
 
 
                 print(f' east layer name:{self.east_layer_name}')
@@ -704,7 +706,8 @@ class CrossVectors:
                             'Coordinates': midpoint,
                             'Direction': math.atan2(average_vertical_value, average_east_value),  # Direction of the vector
                             'label': vector_dataset.get('VECTORLabelField', f'Vector {i+1}'),  # Label for the vector
-                            'color': vector_dataset.get('VECTIRcolor', 'default_color'),  # Color for the vector representation
+                            'color': vector_dataset.get('VECTIRcolor', 'default_color'),
+                            'vector_scale_factor': vector_dataset.get('VectorLayerScale')  # Color for the vector representation
                             # Add any other relevant information here
                         })
 
@@ -719,6 +722,7 @@ class CrossVectors:
             self.los_layer_name = los_dataset.get('LOSlayer', self.los_layer_name)
             self.los_field_name = los_dataset.get('LOSfield', self.los_field_name)
             self.los_layer_color = los_dataset.get('LOScolor', self.los_layer_color)
+            self.los_scale_factor = los_dataset.get('LOSLayerScale', self.los_scale_factor)
             self.los_layer_bufferRadius = los_dataset.get('BufferRadius', self.los_layer_bufferRadius)
             self.los_layer_cell_number = los_dataset.get('LOSBufferCellSize', self.los_layer_cell_number)
             self.los_layer_label = los_dataset.get('LOSlabel', self.los_layer_label)
@@ -815,6 +819,7 @@ class CrossVectors:
                             'segment_start_point': segment_start_point,
                             'segment_end_point': segment_end_point,
                             'color': self.los_layer_color,
+                            'los_scale_factor': self.los_scale_factor,
                         })
 
 
@@ -904,6 +909,8 @@ class CrossVectors:
             dip = vector['Dip']
             dipd = vector['DipDirection']
             los_layer_color = vector['color']
+            los_scale_factor = vector['los_scale_factor']
+            print(f'los scale factor: {los_scale_factor}')
 
             # Find the nearest distance point on the cross-section line for LOS vector
             nearest_distance = min(distances, key=lambda x: abs(x - distance))
@@ -933,7 +940,7 @@ class CrossVectors:
                 vertical_component,
                 angles='xy',
                 scale_units='xy',
-                scale=1,
+                scale=1 * 1/ float(los_scale_factor),
                 color=los_layer_color,
                 linewidth=1,
                 width=0.003,
@@ -978,6 +985,8 @@ class CrossVectors:
             surface_elevation = elevations[nearest_distance_index]
             start_x = nearest_distance
             start_y = surface_elevation
+            vector_scale_factor = vector['vector_scale_factor']
+            print(f'vector scale factor: {vector_scale_factor}')
 
             if isinstance(vector['Coordinates'], QgsPoint):
                 
@@ -1014,7 +1023,7 @@ class CrossVectors:
                 vertical_component,
                 angles='xy',
                 scale_units='xy',
-                scale=0.002,
+                scale=0.002 * 1/ float(vector_scale_factor),
                 color=vector_layer_color,
                 linewidth=3,
                 width=0.003,
@@ -1045,11 +1054,13 @@ class CrossVectors:
 
 
 
-
+            prep = vector['PerpendicularComponent']
             angle = math.degrees(vector['Beta'])  # Converting the angle from radians to degrees
+            print(f'prependicular component: {prep}')
+            print(f'angle before checking if prependicular component is negative: {angle}')
             if vector['PerpendicularComponent'] < 0:
                 angle = 180 - angle
-
+            print(f'angle after checking if prependicular component is negative: {angle}')
 
             length = vector['Magnitude']
             extracted_data.append({'x': x - delta_x, 'y': y - delta_y , 'angle': angle, 'length': length})
@@ -1313,7 +1324,8 @@ class CrossVectors:
                         'Distance': distance,
                         'Beta': beta,
                         'label': vector_label_field,
-                        'color': vector_layer_color
+                        'color': vector_layer_color,
+                        'vector_scale_factor': vector_dataset.get('VectorLayerScale'),
                     })
 
 
@@ -1462,7 +1474,8 @@ class CrossVectors:
                             'Coordinates': midpoint,
                             'Direction': math.atan2(average_vertical_value, average_east_value),  # Direction of the vector
                             'label': vector_dataset.get('VECTORLabelField', f'Vector {i+1}'),  # Label for the vector
-                            'color': vector_dataset.get('VECTIRcolor', 'default_color'),  # Color for the vector representation
+                            'color': vector_dataset.get('VECTIRcolor', 'default_color'),
+                            'vector_scale_factor': vector_dataset.get('VectorLayerScale'),  # Color for the vector representation
                             # Add any other relevant information here
                         })
 
@@ -1496,6 +1509,7 @@ class CrossVectors:
             self.los_layer_label = los_dataset.get('LOSlabel', self.los_layer_label)
             self.los_layer_dip_angle = los_dataset.get('Dip_Angle', self.los_layer_dip_angle)
             self.los_layer_dipd_angle = los_dataset.get('DipD_Angle', self.los_layer_dipd_angle)
+            self.los_scale_factor = los_dataset.get('LOSLayerScale', self.los_scale_factor)
 
 
             dip = np.radians(float(los_dataset.get('Dip_angle', 0.0)))
@@ -1594,6 +1608,7 @@ class CrossVectors:
                             'segment_start_point': segment_start_point,
                             'segment_end_point': segment_end_point,
                             'color': self.los_layer_color,
+                            'los_scale_factor': self.los_scale_factor,
                         })
                 #print(f"los vectors data: {los_vectors_data}")
 
