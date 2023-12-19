@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from numpy import real  # isclose,
-import sympy
+#import sympy
 from sympy import Eq, S, Symbol, linsolve, re, solve, solveset, sqrt, symbols, sympify
 
 

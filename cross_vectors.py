@@ -36,7 +36,8 @@ from qgis.core import (QgsPoint,
                        QgsGeometry,
                        QgsPointXY,
                        QgsSpatialIndex,
-                       QgsVector
+                       QgsVector,
+                       QgsField 
 )
    
 from qgis.PyQt.QtCore import (QVariant,
@@ -55,7 +56,6 @@ import numpy as np
 import pandas as pd 
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D 
-
 
 
 # importing other modules and plugins
@@ -171,7 +171,6 @@ class CrossVectors:
 
 
     def initiate_line_drawing(self):
-        # Pass self.dtm_layer to LineDrawTool
         self.line_tool = LineDrawTool(self.iface.mapCanvas(), self.dtm_layer)
         self.iface.mapCanvas().setMapTool(self.line_tool)
         self.line_tool.lineDrawnSignal.connect(self.lineDrawn)
@@ -184,37 +183,10 @@ class CrossVectors:
         :param line_layer: The line layer to process.   
         :type line_layer: QgsVectorLayer    
         """ 
-        print(f' processing line layer in')
+
         for feature in line_layer.getFeatures():    
             line_geometry = feature.geometry()  
             self.handle_line_geometry(line_geometry)    
-
-    '''
-    def handle_line_geometry(self, line_geometry):
-        print(f'handle_line_geometry method running')
-        if self.dtm_layer:
-            distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
-
-        # Step 1: Getting elevation data
-        distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
-
-        # Step 2: Parse the XML file for vector and LOS datasets
-        dtm_layers, los_datasets, vector_datasets = parse_xml(self.combined_datasets_file_path)
-
-        # Step 3: Process Vector and LOS datasets
-        #vector_buffer_data, los_vectors_data = self.process_vector_datasets(vector_datasets, line_geometry)
-        #los_vectors_data = self.process_los_datasets(los_datasets, line_geometry)
-
-
-        vector_buffer_data, _ = self.process_vector_datasets(vector_datasets, line_geometry)
-        los_vectors_data = self.process_los_datasets(los_datasets, line_geometry)
-
-        # Step 4: Plot cross-section
-        print(f'step 4 distance: {distances}')
-        print(f'elevation: {elevations}')
-        self.plot_cross_section(distances, elevations, vector_buffer_data, los_vectors_data)
-
-    '''
 
 
 
@@ -226,15 +198,11 @@ class CrossVectors:
 
         # Step 1: Getting elevation data
         distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
-        #print(f'distancesss: {distances}')
-        #print(f'elevationsss: {elevations}')
+
         # Step 2: Parse the XML file for vector and LOS datasets
         dtm_layers, los_datasets, vector_datasets = parse_xml(self.combined_datasets_file_path)
 
         # Step 3: Process Vector and LOS datasets
-        #vector_buffer_data, los_vectors_data = self.process_vector_datasets(vector_datasets, line_geometry)
-        #los_vectors_data = self.process_los_datasets(los_datasets, line_geometry)
-
 
         vector_buffer_data, _ = self.process_vector_datasets(vector_datasets, line_geometry)
         los_vectors_data = self.process_los_datasets(los_datasets, line_geometry)
@@ -447,18 +415,15 @@ class CrossVectors:
 
         # Step 1: Getting elevation data
         distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
-        print(f'distancesss: {distances}')
-        print(f'elevationsss: {elevations}')
 
-        #print("Step 1: Elevation data retrieved")
 
         # Step 2: Get the XML file path from your configuration
         xml_file_path = os.path.join(os.getenv('APPDATA'), 'QGIS', 'QGIS3', 'profiles', 'default', 'python', 'plugins', 'combined_datasets.xml')  # Replace with the actual path
-        #print(f"Step 2: XML file path found ")
+
 
         # Step 3: Call the parse_xml function to get vector datasets and buffer radii
         dtm_layers, los_datasets, vector_datasets = parse_xml(xml_file_path)
-        #print("Step 3: XML file parsed")
+
 
 
 
@@ -468,11 +433,10 @@ class CrossVectors:
         
         # Step 4: Create a set to store unique coordinates
         unique_coordinates = set()
-        vector_buffer_data = []  # List to hold data for points within the buffer
-        los_buffer_data = []  # List to hold data for points within the buffer
+        vector_buffer_data = []  
+        los_buffer_data = []  
         los_vectors_data = []
         
-        #print("Step 4: Unique coordinates set created")
 
 
         # Step 5: Iterate through vector datasets
@@ -503,13 +467,12 @@ class CrossVectors:
 
                 # Step 6: Create a buffer geometry around the drawn line
                 buffer_geometry = line_geometry.buffer(buffer_radius, 0)  # Adjust buffer radius and segments as needed
-                #print(f"Step 6: Buffer geometry created with radius {buffer_radius}")
-
+               
                 # Step 7: Iterate through layers specified in the XML for this vector dataset
                 layer_keys = [self.east_layer_field, self.north_layer_field, self.vertical_layer_field]
-                #print(f"layer keys: {layer_keys} from dataset {vector_dataset}")
+                
                 for key in layer_keys:
-                    #print(f"vector key: {key}")
+                  
                     if not key:
                         # Handle the case when the key doesn't exist or has an empty value
                         print(f"No value found for key {key}. Skipping...")
@@ -518,7 +481,7 @@ class CrossVectors:
 
                     # Get the QgsVectorLayer object corresponding to the layer name
                     vector_layer = QgsProject.instance().mapLayersByName(key)
-                    #print(f" key: {key}")
+                   
                     if not vector_layer:
                         print(f"Couldn't find a vector layer named {key} in the project.")
                         continue
@@ -530,12 +493,12 @@ class CrossVectors:
 
                     # Use the spatial index to find potential matches
                     potential_matches = spatial_index.intersects(buffer_geometry.boundingBox())
-                    #print(f"potential matches: {potential_matches}")
+                
                     # Filter the potential matches
                     for feature_id in potential_matches:
                         feature = vector_layer.getFeature(feature_id)
                         if buffer_geometry.intersects(feature.geometry()):
-                            # vector_layer.select(feature.id())
+                           
                             vector_layer.selectByIds([feature.id()], QgsVectorLayer.AddToSelection)
 
                     # Get the selected features and process them
@@ -551,7 +514,7 @@ class CrossVectors:
                         vertical_disp = feature[vector_dataset['VerticalField']]
                         vector_label_field=feature[vector_dataset['VECTORLabelField']]
                         vector_layer_color=vector_dataset['VECTIRcolor']
-                        #print(f" selected a feature from layer {vector_dataset['VECTORLayerlabel']}")
+                        
                         
                         magnitude_2d = math.sqrt(east_disp ** 2 + north_disp ** 2)
                     
@@ -565,7 +528,7 @@ class CrossVectors:
 
                         # Calculate the angle of the vector
                         alpha = math.atan2(magnitude_2d, vertical_disp)
-                        #alpha = math.atan2(north_disp, east_disp)
+                       
 
                         
                         start_point_coords = QgsPoint(line_start_point.x(), line_start_point.y())
@@ -602,14 +565,13 @@ class CrossVectors:
                     
 
                     if not vector_layer:
-                        #print(f"Couldn't find a vector layer named {layer_name} in the project.")
                         continue
 
                 vector_layer.removeSelection()  # Clear previous selections
             
 
 
-            # Looping through the radar datset
+            # Looping through the inSAR2D datset
             else:
                 print(f' insar 2d data is given')
                 self.east_layer_name = vector_dataset.get('Eastlayer', self.east_layer_field)
@@ -700,23 +662,21 @@ class CrossVectors:
                             average_east_value = sum_east_values / count_features
                             print(f'average_east_value: {average_east_value}')
                             average_vertical_value = sum_vertical_values / count_features
-                            print(f'average_vertical_value: {average_vertical_value}')
-                            # ... rest of your code that uses average_east_value and average_vertical_value
+
+                            
                         else:
                             print(f"No features found in segment {i}, skipping calculations for this segment.")
                             continue  # Skip the rest of the loop for this segment if no features are found
 
 
-
+                    # To handle divison by zeros
                     if average_east_value == 0:
                         average_east_value = 0.00001
 
                     if average_vertical_value == 0:
                         average_vertical_value = 0.00001
 
-                    print(f'average_east_value for segment {i}: {average_east_value}')
-                    print(f'average_vertical_value for segment {i}: {average_vertical_value}')
-                    #distance = start_point_coords.distance(QgsPoint(feature_coords[0], feature_coords[1]))
+                    
                     feature_coords = feature.geometry().asPoint()
                     distance = midpoint.distance(QgsPoint(feature_coords[0], feature_coords[1]))
                     magnitude_2d = math.sqrt(average_east_value **2 + 0)
@@ -728,12 +688,9 @@ class CrossVectors:
                     
                     beta = -1 * math.atan(average_vertical_value/magnitude_2d)
 
-                    
 
-                    print('average vertical value: {average_vertical_value}')
 
-                    print(f' distance: {distance}')
-                    print(f' magnitude: {magnitude}')
+
                     los_vectors_data = []
                     # Append vector information for this segment
                     if abs(magnitude) > 0.001:
@@ -771,15 +728,12 @@ class CrossVectors:
 
             dip = np.radians(float(los_dataset.get('Dip_angle', 0.0)))
             dipd = np.radians(float(los_dataset.get('DipD_angle', 0.0)))
-            #print(f"los dip: {dip}")
-            #print(f"los dipd: {dipd}")
+
             buffer_radius = float(los_dataset.get('LOSBufferRadius', 0.0))
-            #print(f"los buffer_radius: {buffer_radius}")
+
             los_buffer_geometry = line_geometry.buffer(buffer_radius, 0)
 
-            # Inside the loop for los_datasets, after creating los_buffer_geometry
-            #self.segment_length = line_geometry.length() / 5  # Divide line length into 5 segments
-            #print(f" number of segmentssssss: {self.los_layer_cell_number}")
+            
             self.segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(),int(float(self.los_layer_cell_number)))]  # Creates 6 points dividing the line into 5 segments
 
             
@@ -790,7 +744,7 @@ class CrossVectors:
                 continue
 
             los_layer = QgsProject.instance().mapLayersByName(los_layer_name)
-            print(f"los_layer: {los_layer}")
+
             
             if not los_layer:
                 print(f"Couldn't find a 'los' layer named {los_layer_name} in the project. Skipping...")
@@ -799,14 +753,13 @@ class CrossVectors:
             los_layer = los_layer[0]
             
             los_layer.removeSelection()
-            #print(f"los_layer: {los_layer}")
-            print(f'los_layer: {los_layer}')
+
+
             spatial_index = QgsSpatialIndex(los_layer.getFeatures())
 
-            print(f'number of featuers in the layer: {los_layer.featureCount()}')
 
             segment_averages = []  # This will store the average values for each segment
-            feature = None  # Initialize feature outside the loop
+            feature = None  
             
             for i in range(len(self.segments) - 1):
                 # Create a segment geometry from two points
@@ -815,18 +768,16 @@ class CrossVectors:
 
                 # Buffer the segment
                 segment_buffer_geometry = segment_geometry.buffer(buffer_radius, 0)
-                # Now you can find potential matches for each segment as you did for the entire buffer
+                
                 potential_segment_matches = spatial_index.intersects(segment_buffer_geometry.boundingBox())
-                #print(f"len(potential_segment_matchesssssssss): {len(potential_segment_matches)}")
-                print(f'potential segment matches numerber: {len(potential_segment_matches)}')
-
+                
                 sum_values = 0
                 count_features = 0
                 for feature_id in potential_segment_matches:
 
                     feature = los_layer.getFeature(feature_id)
                     if segment_buffer_geometry.intersects(feature.geometry()):
-                        sum_values += feature[los_dataset['LOSfield']]  # Replace 'data_field' with the actual field name
+                        sum_values += feature[los_dataset['LOSfield']]  
                         count_features += 1
 
                 
@@ -837,7 +788,7 @@ class CrossVectors:
                 los_vectors_data = []
                 fixed_angle = math.radians(60)
 
-                print(f"segment averages: {segment_averages}")
+
                 for i, segment_average in enumerate(segment_averages):
                     # Use the segment_average as the magnitude
                     magnitude = segment_average
@@ -848,8 +799,7 @@ class CrossVectors:
                    # Calculate the coordinates of the vector's start and end points along the cross-section line
                     segment_start_point = self.segments[i].asPoint()  # Start point of the segment
                     segment_end_point = self.segments[i + 1].asPoint()  # End point of the segment
-                    #print(f"hereeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
-                    #print(f"feature: {feature}")
+
                     start_point_coords = QgsPoint(segment_start_point.x(), segment_start_point.y())
                     feature_coords = feature.geometry().asPoint()
                     distance = start_point_coords.distance(QgsPoint(feature_coords[0], feature_coords[1]))
@@ -860,20 +810,17 @@ class CrossVectors:
                             'Magnitude': magnitude,
                             'Dip': beta,
                             'DipDirection': dipd,
-                            'Distance':  distance,  # Use the midpoint as the distance
-                            'label': f'LOS {i+1}',  # You can use a meaningful label
+                            'Distance':  distance,  
+                            'label': f'LOS {i+1}',  
                             'segment_start_point': segment_start_point,
                             'segment_end_point': segment_end_point,
                             'color': self.los_layer_color,
                         })
-                #print(f"los vectors data: {los_vectors_data}")
-
-                #print(f"segment_averagesssssss: {segment_averages}")
 
 
             potential_matches = spatial_index.intersects(los_buffer_geometry.boundingBox())
 
-            #print(f"number of potential matches: {len(potential_matches)}")
+
             
             # Filter the potential matches
             for feature_id in potential_matches:
@@ -883,15 +830,9 @@ class CrossVectors:
 
             selected_features = los_layer.selectedFeatures()
 
-            #print(f"Selected {len(selected_features)} features from layer {los_layer_name} within buffer radius {buffer_radius} m")
-
-
+            
             # Step 8: Iterate through LOS datasets
         
-
-
-            # Step after your existing code - Create a new vector layer
-
 
 
         # Get the current CRS from the QGIS project
@@ -925,19 +866,16 @@ class CrossVectors:
 
         self.plot_cross_section(distances, elevations, vector_buffer_data, los_vectors_data)
 
-        #return segment_length, segments
      
 
 
 
     def plot_cross_section(self, distances, elevations, vectors_data, los_vectors_data ):
-        #print("Plotting cross section...")
-        #print(los_vectors_data)
+
         fig, ax = plt.subplots(figsize=(12, 6))
         
-        #print(f"vetor dataset: {vectors_data}")
-        #print("los dataset: {los_vectors_data}")
-        # Plot the blue line for terrain elevation and add a legend entry
+
+
 
         # Find the maximum elevation in your data (to start dashed lines from the top)
         max_elevation = max(elevations)
@@ -945,23 +883,17 @@ class CrossVectors:
         # Initialize lists to store the starting and ending points of the dashed lines
         dashed_lines_start = []
         dashed_lines_end = []
-  # Create a custom legend with labels for the blue line and red lines
+
+        # Create a custom legend with labels for the blue line and red lines
         custom_legend = []
         legend_labels = []
-        custom_legend.append(Line2D([0], [0], color='black', lw=1, label='Cross Section'))  # Custom legend entry for cross section
+        custom_legend.append(Line2D([0], [0], color='black', lw=1, label='Cross Section'))  
         legend_labels.append('Cross Section')
         
 
 
         # for vectors of los vectors
-        #print(f"los vectors data: {los_vectors_data}")
 
-        print(f"los vector reae hererererererere")
-        print(f"los vector data:            {los_vectors_data}")
-
-
-        
-        # Assuming max_elevation is defined earlier in your code
         # Loop through each vector in los_vectors_data
         for vector in los_vectors_data:
             # Extract necessary data from the current vector
@@ -1021,9 +953,6 @@ class CrossVectors:
                 linewidth=0.25
             )
 
-
-
-
         # for labels of los vectors
         for los_dataset in self.los_datasets:
             self.los_layer_name = los_dataset.get('LOSlayer', self.los_layer_name)
@@ -1035,7 +964,7 @@ class CrossVectors:
             self.los_layer_dip_angle = los_dataset.get('Dip_Angle', self.los_layer_dip_angle)
             self.los_layer_dipd_angle = los_dataset.get('DipD_Angle', self.los_layer_dipd_angle)
             custom_legend.append(Line2D([0], [0], color= self.los_layer_color, lw=1, label=self.los_layer_label))  # Custom legend entry for red vectors
-            #print(f"adding los legend")
+
             legend_labels.append(str(self.los_layer_label))
 
 
@@ -1043,13 +972,10 @@ class CrossVectors:
         usable_vectors_data = []
         extracted_data = []
         for vector in vectors_data:
-            #print(f"vectors data to draw circular surface from: {vectors_data}")
-            #ax.plot(vector['Coordinates'][0], vector['Coordinates'][1], 'ro', label='vector coordinate')
             distance = vector['Distance']
             nearest_distance = min(distances, key=lambda x: abs(x - distance))
             nearest_distance_index = distances.index(nearest_distance)
             surface_elevation = elevations[nearest_distance_index]
-            #print(f"vectors nearest distance: {abs(-distance)}")
             start_x = nearest_distance
             start_y = surface_elevation
 
@@ -1072,16 +998,10 @@ class CrossVectors:
 
             horizontal_component = magnitude_3d * math.cos(beta) * 1
             vertical_component = magnitude_3d * math.sin(beta) * 1
-            #print('beta: ', beta)
-
-
-            #if beta > 0:
-            #    horizontal_component = -1 * horizontal_component
 
             if isinstance(vector['Coordinates'], QgsPoint):
-               # print('prependicular component', +  vector['PerpendicularComponent'])
+
                 if vector['PerpendicularComponent'] < 0:
-                   # print('modifying horizontal value')
                     horizontal_component = -1 * magnitude_3d * math.cos(beta) * 1
                 
 
@@ -1104,8 +1024,6 @@ class CrossVectors:
             label_y = start_y + 1.1 * vertical_component * 500
 
             
-            #delta_x = vector['Coordinates'][0] - start_x
-            #delta_y = vector['Coordinates'][1] - start_y
 
             x, y = vector['Coordinates'].x() - delta_x , vector['Coordinates'].y()-delta_y 
 
@@ -1114,21 +1032,12 @@ class CrossVectors:
             start_angle_degrees = math.degrees(beta)
             end_angle_degrees = start_angle_degrees  # Assuming end_angle is the same as start_angle
 
-            '''
-            usable_vectors_data.append({
-                'Coordinates': (x-start_x, y-start_y),  # Now the coordinates are a tuple
-                'PerpendicularComponent': vector['PerpendicularComponent'],
-                'label': vector_label_field,        
-                'start_angle': start_angle_degrees,  # Added start angle in degrees
-                'end_angle': end_angle_degrees,  # Added end angle in degrees
-            })
-            '''
 
             if isinstance(vector['Coordinates'], QgsPoint):
                 
                 x = vector['Coordinates'].x() 
                 y = vector['Coordinates'].y() 
-            # Check if 'Coordinates' is subscriptable (like a tuple, list, or a QgsPointXY)
+          
             elif hasattr(vector['Coordinates'], '__getitem__'): 
                 x = vector['Coordinates'][0]
                 y = vector['Coordinates'][1] 
@@ -1136,23 +1045,22 @@ class CrossVectors:
 
 
 
-            #x = vector['Coordinates'][0]
-            #y = vector['Coordinates'][1]
+
             angle = math.degrees(vector['Beta'])  # Converting the angle from radians to degrees
+            if vector['PerpendicularComponent'] < 0:
+                angle = 180 - angle
+
+
             length = vector['Magnitude']
             extracted_data.append({'x': x - delta_x, 'y': y - delta_y , 'angle': angle, 'length': length})
 
             
             # Integration of the code developed by Caterina
-            
 
-              # usable_vectors_data = sorted(usable_vectors_data, key=lambda v: v['Coordinates'][0])
-            #print(f"usable vectors data: {usable_vectors_data}")
-            #ax.plot(x, y, 'ro', label='vector coordinate')
             
             
             if isinstance(vector['Coordinates'], QgsPoint):
-               # print('we are not printing labels bcz its inSAR 2D')
+
                pass
             elif hasattr(vector['Coordinates'], '__getitem__'): 
                 ax.text(
@@ -1191,7 +1099,7 @@ class CrossVectors:
             self.vector_layer_cell_number = vector_dataset.get('CellNumber', self.vector_layer_cell_number)
             custom_legend.append(Line2D([0], [0], color= self.vector_layer_color, lw=1, label = self.vector_layer_label))  # Custom legend entry for red vectors
             legend_labels.append(self.vector_layer_label)
-            #print(f"adding vector legend")
+
 
 
         ax.plot(distances, elevations, label='Cross Section', color='black', linewidth=1)
@@ -1199,8 +1107,7 @@ class CrossVectors:
 
         custom_legend.append(Line2D([0], [0], color='black', lw=2, label='10 cm'))  # Custom legend entry for red vectors]
         legend_labels.append('scale line')
-        #print(custom_legend)
-        #print(legend_labels)
+
         
         ax.legend(custom_legend, legend_labels)
         
@@ -1232,7 +1139,7 @@ class CrossVectors:
             return []
 
         # Distance between two points
-        distance_interval = 5.0  # Change this value based on your requirements
+        distance_interval = 5.0  
 
         # Get the length of the line
         length = line_geometry.length()
@@ -1271,7 +1178,7 @@ class CrossVectors:
 
 
 
-    def process_vector_datasets(self, vector_datasets, line_geometry):
+    def process_vector_datasets(self, vector_datasets, line_geometry):  
         if line_geometry.isMultipart():
             # Extracts the first line string from the multi-line string
             line_string = line_geometry.asMultiPolyline()[0]
@@ -1289,17 +1196,15 @@ class CrossVectors:
         vector_buffer_data = []  # List to hold data for points within the buffer
         los_buffer_data = []  # List to hold data for points within the buffer
         los_vectors_data = []
-        # Step 5: Iterate through vector datasets
+
         for vector_dataset in vector_datasets:
 
             cell_number = vector_dataset.get('CellNumber')
             if isinstance(cell_number, str):
                 cell_number = float(cell_number)
-          #  print(f'vector dataset cellnumber: {vector_dataset.get("CellNumber")} ')
-           # print(f' cellnumber type: {type(vector_dataset.get("CellNumber"))}')
 
             
-            # Looping through the inSAR dataset
+            # Looping through the prisms dataset
             if cell_number == 0:
                 print(' cell number = 0, priesm data is given')
                 #Check for field names in the vector dataset and store them
@@ -1311,17 +1216,16 @@ class CrossVectors:
                 self.vector_layer_bufferRadius = vector_dataset.get('BufferRadius', self.vector_layer_bufferRadius)
                 self.vector_layer_cell_number = vector_dataset.get('CellNumber', self.vector_layer_cell_number)
                 
-                #print(f"vector_dataset labellll: {vector_dataset.get('VECTORLayerlabel')}")
-
+              
                 buffer_radius = vector_dataset.get('BufferRadius', 0.0)  # Retrieve the buffer radius from the vector dataset
 
                 # Step 6: Create a buffer geometry around the drawn line
                 buffer_geometry = line_geometry.buffer(buffer_radius, 0)  # Adjust buffer radius and segments as needed
-                #print(f"Step 6: Buffer geometry created with radius {buffer_radius}")
+                
 
                 # Step 7: Iterate through layers specified in the XML for this vector dataset
                 layer_keys = [self.east_layer_field, self.north_layer_field, self.vertical_layer_field]
-                #print(f"layer keys: {layer_keys} from dataset {vector_dataset}")
+                
                 for key in layer_keys:
                     #print(f"vector key: {key}")
                     if not key:
@@ -1332,7 +1236,7 @@ class CrossVectors:
 
                     # Get the QgsVectorLayer object corresponding to the layer name
                     vector_layer = QgsProject.instance().mapLayersByName(key)
-                    #print(f" key: {key}")
+
                     if not vector_layer:
                         print(f"Couldn't find a vector layer named {key} in the project.")
                         continue
@@ -1344,7 +1248,7 @@ class CrossVectors:
 
                     # Use the spatial index to find potential matches
                     potential_matches = spatial_index.intersects(buffer_geometry.boundingBox())
-                    #print(f"potential matches: {potential_matches}")
+
                     # Filter the potential matches
                     for feature_id in potential_matches:
                         feature = vector_layer.getFeature(feature_id)
@@ -1354,8 +1258,7 @@ class CrossVectors:
 
                     # Get the selected features and process them
                     selected_features = vector_layer.selectedFeatures()
-                   # print(f"selected features: {vector_layer}")
-
+                  
 
                     # Iterate through the selected features
                    
@@ -1365,22 +1268,23 @@ class CrossVectors:
                         vertical_disp = feature[vector_dataset['VerticalField']]
                         vector_label_field=feature[vector_dataset['VECTORLabelField']]
                         vector_layer_color=vector_dataset['VECTIRcolor']
-                        #print(f" selected a feature from layer {vector_dataset['VECTORLayerlabel']}")
-                        
+                         
                         magnitude_2d = math.sqrt(east_disp ** 2 + north_disp ** 2)
                     
                         magnitude_3d = math.sqrt(magnitude_2d ** 2 + vertical_disp ** 2)
                     
                         beta = -1 * math.atan(vertical_disp / magnitude_2d)
-                        
+                        print('hereeeeeeee')
+                        print(f'vertical displacement:{vertical_disp}')
+                        print(f'horizontal displacement:{magnitude_2d}')
+                        print(f'beta: {beta}')
                         magnitude = magnitude_3d * 0.001 # Convert to meters
 
                         projection = east_disp * normalized_direction_vector.x() + north_disp * normalized_direction_vector.y()
 
                         # Calculate the angle of the vector
                         alpha = math.atan2(magnitude_2d, vertical_disp)
-                        #alpha = math.atan2(north_disp, east_disp)
-
+                       
                         
                         start_point_coords = QgsPoint(line_start_point.x(), line_start_point.y())
                         feature_coords = feature.geometry().asPoint()
@@ -1423,7 +1327,7 @@ class CrossVectors:
             
 
 
-            # Looping through the radar datset
+            # Looping through the inSAR2d datset
             else:
                 print(f' insar 2d data is given')
                 self.east_layer_name = vector_dataset.get('Eastlayer', self.east_layer_field)
@@ -1526,8 +1430,7 @@ class CrossVectors:
                     if average_vertical_value == 0:
                         average_vertical_value = 0.00001
 
-                    print(f'average_east_value for segment {i}: {average_east_value}')
-                    print(f'average_vertical_value for segment {i}: {average_vertical_value}')
+
                     #distance = start_point_coords.distance(QgsPoint(feature_coords[0], feature_coords[1]))
                     feature_coords = feature.geometry().asPoint()
                     distance = midpoint.distance(QgsPoint(feature_coords[0], feature_coords[1]))
@@ -1540,12 +1443,12 @@ class CrossVectors:
                     
                     beta = -1 * math.atan(average_vertical_value/magnitude_2d)
 
-                    
+                    print('hereeeeeeee')
 
-                    print('average vertical value: {average_vertical_value}')
+                    print(f'beta: {beta}')
 
-                    print(f' distance: {distance}')
-                    print(f' magnitude: {magnitude}')
+
+
                     los_vectors_data = []
                     # Append vector information for this segment
                     if abs(magnitude) > 0.001:
