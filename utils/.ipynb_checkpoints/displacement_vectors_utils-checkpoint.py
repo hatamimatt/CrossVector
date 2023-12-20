@@ -112,7 +112,7 @@ def prepare_data(
     if selected_rows is not None:
             # Check if any selected row is out of bounds
         if max(selected_rows) >= len(data):
-            print("Error: One or more selected rows are out of bounds.")
+            print("WARNING - One or more selected rows are out of bounds.")
             pass
         else:
             data = data.iloc[selected_rows].reset_index(drop=True)
