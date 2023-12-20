@@ -5,8 +5,7 @@ This Python script includes a set of functions that are used to handle and visua
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from numpy import real  # isclose,
-import sympy
+from numpy import real
 from sympy import Eq, S, Symbol, linsolve, re, solve, solveset, sqrt, symbols, sympify
 
 
@@ -30,31 +29,105 @@ def check_empty_values(dictionary):
     return False
     
     
-def check_angles(df):
+def check_profile_and_angles(data, selected_position, slope):
     """
-    This function checks if the angles in a DataFrame are in descending order.
-    If not, it removes any row where the angle is greater than the next one.
+    This function checks the direction of a profile based on 'x' and 'y' data in a DataFrame and filters the data according to the angles.
 
     Parameters:
-    df (pd.DataFrame): A DataFrame with at least two columns 'x' and 'angle'.
+    data (pandas.DataFrame): A DataFrame containing 'x', 'y', and 'angle' data.
+    selected_position (str): The known position ('Head' or 'Foot').
+    slope (float): The slope of the profile.
 
     Returns:
-    df (pd.DataFrame): The DataFrame after removing rows where the angle is greater than the next one.
+    data (pd.DataFrame): The DataFrame after removing rows where the angle is less than the previous one and greater than the next one.
+    """
+    # Create a new column 'next_angle' that contains the next row's angle
+    data["next_angle"] = data["angle"].shift(-1)
+    # Create a new column 'prev_angle' that contains the previous row's angle
+    data["prev_angle"] = data["angle"].shift(1)
+
+    # For a negative slope, drop any rows where the current angle is less than the previous one and greater than the next one
+    if slope < 0:
+        data = data.drop(data[data["angle"] < 0].index)
+        # Apply the angle's rule of thumb
+        data = data.loc[
+            data[
+                ((data["angle"] > data["prev_angle"]) | (data["prev_angle"].isna()))
+                & ((data["angle"] < data["next_angle"]) | (data["next_angle"].isna()))
+            ].index
+        ]
+        # Sort the data by the x coordinate
+        data = data.sort_values(
+            by="x", ascending=(selected_position == "Head"), ignore_index=True
+        )
+    # For a positive slope, drop any rows where the current angle is greater than the previous one and less than the next one
+    elif slope > 0:
+        data = data.drop(data[data["angle"] > 0].index)
+        # Apply the angle's rule of thumb
+        data = data.loc[
+            data[
+                ((data["angle"] < data["prev_angle"]) | (data["prev_angle"].isna()))
+                & ((data["angle"] > data["next_angle"]) | (data["next_angle"].isna()))
+            ].index
+        ]
+        # Sort the data by the x coordinate
+        data = data.sort_values(
+            by="x", ascending=(selected_position == "Foot"), ignore_index=True
+        )
+    # For a zero slope, do nothing
+    else:
+        data = pd.DataFrame()
+
+    # Remove the 'prev_angle' and 'next_angle' columns
+    data = data.drop(columns=["prev_angle", "next_angle"])
+
+    return data
+
+
+def loop_until_no_change(data, selected_position):
+    """
+    This function repeatedly calls 'check_profile_and_angles' until the DataFrame doesn't change anymore.
+
+    Parameters:
+    data (pandas.DataFrame): A DataFrame containing 'x', 'y', and 'angle' data.
+    selected_position (str): The known position ('Head' or 'Foot').
+
+    Returns:
+    data (pd.DataFrame): The final DataFrame after all necessary modifications.
     """
 
-    # Sort the DataFrame by 'x' in ascending order and reset the index
-    df = df.sort_values(by='x').reset_index(drop=True)
+    # Sort the DataFrame by 'x' in ascending order and reset the index for consistency
+    data = data.sort_values(by="x").reset_index(drop=True)
 
-    # Create a new column 'next_angle' that contains the next row's angle
-    df['next_angle'] = df['angle'].shift(-1)
+    # Calculate the slope using the formula (y2 - y1) / (x2 - x1)
+    slope = (data["y"].iloc[-1] - data["y"].iloc[0]) / (
+        data["x"].iloc[-1] - data["x"].iloc[0]
+    )
+    if slope < 0:
+        print("The profile is going from top left to bottom right.")
+    elif slope > 0:
+        print("The profile is going from bottom left to top right.")
+    else:
+        print("The profile is a straight horizontal line.")
+        curr_data = pd.DataFrame()
+        return curr_data
 
-    # Drop any rows where the current angle is greater than the next one
-    df = df.drop(df[df['angle'] > df['next_angle']].index)
+    # Initialize the DataFrame for the previous iteration
+    prev_data = None
 
-    # Remove the 'next_angle' column
-    df = df.drop(columns=['next_angle'])
+    # Loop until the DataFrame doesn't change
+    while True:
+        # Call 'check_profile_and_angles' and get the current DataFrame
+        curr_data = check_profile_and_angles(data, selected_position, slope)
 
-    return df
+        # If the current DataFrame is the same as the previous one, break the loop
+        if prev_data is not None and curr_data.equals(prev_data):
+            break
+
+        # Update the DataFrame for the previous iteration
+        prev_data = curr_data.copy()
+
+    return curr_data
     
 
 def custom_solve(equations, variables):
