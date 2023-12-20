@@ -66,6 +66,7 @@ from .utils.plott_all import plot_all
 from .line_draw_tool import LineDrawTool
 from .line_draw_tool import LineDrawTool
 from .resources import *
+from .test import testPrint as testPrint
 
 
 
@@ -1659,3 +1660,5 @@ class CrossVectors:
         return normalized_direction_vector
 
 
+    def otherModules(self):
+        testPrint()
