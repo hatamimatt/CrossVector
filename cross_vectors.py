@@ -129,6 +129,7 @@ class CrossVectors:
         
         self.line_name = None 
         self.layer_name = None 
+        self.field_name = None
 
 
         # Save reference to the QGIS interface
@@ -583,7 +584,6 @@ class CrossVectors:
                 print(f' insar 2d data is given')
                 self.east_layer_name = vector_dataset.get('Eastlayer', self.east_layer_field)
                 self.east_layer_field = vector_dataset.get('Eastlayer', self.east_layer_field)
-                self.layer_name = vector_dataset.get('Eastlayer', self.east_layer_field)
                 print(f'east_layer_field: {self.east_layer_field}')
                 self.north_layer_field = vector_dataset.get('NorthLayer', self.north_layer_field)
                 self.vertical_layer_field = vector_dataset.get('VerticalLayer', self.vertical_layer_field)
@@ -1228,6 +1228,8 @@ class CrossVectors:
                 print(' cell number = 0, priesm data is given')
                 #Check for field names in the vector dataset and store them
                 self.east_layer_field = vector_dataset.get('Eastlayer', self.east_layer_field)
+                self.layer_name = vector_dataset.get('Eastlayer', self.east_layer_field)
+                #print(f'self.layername in process vector dataset in prism data: {self.layer_name}')
                 self.north_layer_field = vector_dataset.get('NorthLayer', self.north_layer_field)
                 self.vertical_layer_field = vector_dataset.get('VerticalLayer', self.vertical_layer_field)
                 self.vector_layer_label = vector_dataset.get('VECTORLayerlabel', self.vector_layer_label)
@@ -1283,6 +1285,8 @@ class CrossVectors:
                    
                     for feature in selected_features:
                         east_disp = feature[vector_dataset['EASTfield']]
+                        self.field_name =  feature[vector_dataset['EASTfield']]
+                        #print(f'self.field_name in prisms data process vector datasets: {self.field_name}')
                         north_disp = feature[vector_dataset['NorthField']]
                         vertical_disp = feature[vector_dataset['VerticalField']]
                         vector_label_field=feature[vector_dataset['VECTORLabelField']]
@@ -1351,6 +1355,10 @@ class CrossVectors:
             else:
                 print(f' insar 2d data is given')
                 self.east_layer_name = vector_dataset.get('Eastlayer', self.east_layer_field)
+
+                self.layer_name = vector_dataset.get('Eastlayer', self.east_layer_field)
+                #print(f'self.layername in process vector dataset in los data: {self.layer_name}')
+                
                 self.east_layer_field = vector_dataset.get('Eastlayer', self.east_layer_field)
                 self.north_layer_field = vector_dataset.get('NorthLayer', self.north_layer_field)
                 self.vertical_layer_field = vector_dataset.get('VerticalLayer', self.vertical_layer_field)
@@ -1360,8 +1368,7 @@ class CrossVectors:
                 self.vector_layer_cell_number = vector_dataset.get('CellNumber', self.vector_layer_cell_number)
 
 
-                print(f' east layer name:{self.east_layer_name}')
-                print(f' vertical layer name:{self.vertical_layer_field}')
+
                  # Get the number of segments to divide the line into, based on available data
                 segment_count = int(float(vector_dataset.get('CellNumber', 5)))  # Default to 5 if not specified
                 segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(), segment_count + 1)]
@@ -1426,7 +1433,8 @@ class CrossVectors:
                             if segment_buffer_geometry.intersects(feature.geometry()):
                                 sum_east_values += feature[vector_dataset['EASTfield']]
                                 count_features += 1
-
+                        self.field_name = vector_dataset['EASTfield']
+                        #print(f'self.field_name in LOS data process vector datasets: {self.field_name}')
                         # Iterate through potential matches for vertical values
                         for feature_id in vertical_potential_segment_matches:
                             feature = vertical_vector_layer.getFeature(feature_id)
@@ -1669,7 +1677,10 @@ class CrossVectors:
 
     def save_surface(self):
         testPrint()
-        save_dict_to_json()
+        print(f'self.layer_name: {self.layer_name}')
+        print(f'self.field_name: {self.field_name}')
+        save_dict_to_json({}, self.layer_name, self.field_name, 'line_name_here')
+
 
     def load_surface(self):
         load_dict_from_json()
