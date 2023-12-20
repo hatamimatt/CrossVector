@@ -99,8 +99,15 @@ def prepare_data(
     data = data.sort_values(
         by="x", ascending=(selected_position == "Head"), ignore_index=True
     )
-    
+
     print(f' data being printed from displacement vectors utils after being sorted on x: {data}')
+
+    if data.empty or len(data) < 2:
+    print(
+        "ERROR - For this particular geometry, it is impossible to calculate the rotational or roto-translational sliding surface."
+    )
+    return {}
+    
     # Filter the data by the selected rows, if any
     if selected_rows is not None:
             # Check if any selected row is out of bounds
