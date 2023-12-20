@@ -1691,4 +1691,4 @@ class CrossVectors:
 
 
     def load_surface(self):
-        load_dict_from_json('MUPINE_KITD_TSX_EW_20231109_Xf5zjwqa2A2E-D20231109-crossSectionLine-20231220_164312')
+        load_dict_from_json()
