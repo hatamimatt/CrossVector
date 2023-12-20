@@ -111,12 +111,12 @@ def prepare_data(
         msg.setWindowTitle("ERROR MESSAGE")
         msg.setText("For this particular geometry, it is impossible to calculate the rotational or roto-translational sliding surface.")
         x = msg.exec_()
-
+        
         return {}
     
     # Filter the data by the selected rows, if any
     if selected_rows is not None:
-            # Check if any selected row is out of bounds
+        # Check if any selected row is out of bounds
         if max(selected_rows) >= len(data):
             print("WARNING - One or more selected rows are out of bounds.")
             # Create a message box

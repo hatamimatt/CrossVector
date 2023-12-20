@@ -111,7 +111,7 @@ def prepare_data(
         msg.setWindowTitle("ERROR MESSAGE")
         msg.setText("For this particular geometry, it is impossible to calculate the rotational or roto-translational sliding surface.")
         x = msg.exec_()
-
+        
         return {}
     
     # Filter the data by the selected rows, if any
