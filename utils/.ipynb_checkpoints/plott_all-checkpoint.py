@@ -29,6 +29,9 @@ def plot_all(output):
         x_construction_lines, y_construction_lines (list): Lists of x and y coordinates of the intersections for the construction lines.
         intersection_order (list): List of indices that represent the order of the intersections.
     """
+    if not output:
+        return
+
     # Unpack the output dictionary
     known_position_index = output["known_position_index"]
     x = output["x"]
@@ -49,44 +52,50 @@ def plot_all(output):
         y_construction_lines = output["y_construction_lines"]
         intersection_order = output["intersection_order"]
 
-    # Plot known point
-    plot.plot_known_point(x, y, known_position_index)
-    # Plot vector locations
-    plot.plot_vector_locations(x, y, known_position_index)
-    # Plot vector displacement
-    plot.plot_vector_displacements(x, y, end_x_displacement, end_y_displacement)
+    # Check if known_position_index exists in the dataset
+    if known_position_index > len(x) - 1:
+        print(
+            f"ERROR - known_position_index out of bound: your data has {len(x)} rows."
+        )
+    else:
+        # Plot known point
+        plot.plot_known_point(x, y, known_position_index)
+        # Plot vector locations
+        plot.plot_vector_locations(x, y, known_position_index)
+        # Plot vector displacement
+        plot.plot_vector_displacements(x, y, end_x_displacement, end_y_displacement)
 
-    # Only proceed if there are circle centers
-    if len(x_center) > 0:
-        # Plot circle centers
-        plot.plot_circle_centers(x_center, y_center)
-        # Plot surface
-        plot.plot_surface(xy_r_list)
-        # Plot construction lines
-        plot.plot_construction_lines(
+        # Only proceed if there are circle centers
+        if len(x_center) > 0:
+            # Plot circle centers
+            plot.plot_circle_centers(x_center, y_center)
+            # Plot surface
+            plot.plot_surface(xy_r_list)
+            # Plot construction lines
+            plot.plot_construction_lines(
+                x_center_plot,
+                y_center_plot,
+                x_construction_lines,
+                y_construction_lines,
+                intersection_order,
+            )
+            # Plot intersections
+            plot.plot_intersections(x_intersection, y_intersection)
+        else:
+            # No circle centers found
+            xy_r_list = []
+            x_center_plot = []
+            y_center_plot = []
+
+        # Set plot limits
+        plot.set_plot_limits(
+            x,
+            y,
+            end_x_displacement,
+            end_y_displacement,
+            xy_r_list,
             x_center_plot,
             y_center_plot,
-            x_construction_lines,
-            y_construction_lines,
-            intersection_order,
         )
-        # Plot intersections
-        plot.plot_intersections(x_intersection, y_intersection)
-    else:
-        # No circle centers found
-        xy_r_list=[]
-        x_center_plot=[]
-        y_center_plot=[]
-
-    # Set plot limits
-    plot.set_plot_limits(
-        x,
-        y,
-        end_x_displacement,
-        end_y_displacement,
-        xy_r_list,
-        x_center_plot,
-        y_center_plot,
-    )
-    # Show the plot
-    plot.show_plot()
+        # Show the plot
+        plot.show_plot()
