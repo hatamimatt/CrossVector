@@ -66,9 +66,9 @@ def load_dict_from_json(filename):
             return json.load(f)
     except Exception as e:
         print(f"An error occurred while trying to load the dictionary from a JSON file: {e}")
-            # Create a message box
-            msg = QMessageBox()   
-            msg.setWindowTitle("ERROR MESSAGE")
-            msg.setText(f"An error occurred while trying to load the dictionary from a JSON file: {e}.")
-            x = msg.exec_()
+        # Create a message box
+        msg = QMessageBox()   
+        msg.setWindowTitle("ERROR MESSAGE")
+        msg.setText(f"An error occurred while trying to load the dictionary from a JSON file: {e}.")
+        x = msg.exec_()
 

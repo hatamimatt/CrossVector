@@ -185,7 +185,8 @@ class CrossVectors:
 
 
     def process_line_layer(self, line_layer):   
-        self.line_name = line_layer.name() 
+        print(f'process_line_layer method running')
+       
         """ 
         Processes a given line layer.   
 
@@ -1195,7 +1196,8 @@ class CrossVectors:
 
 
     def process_line_layer(self, line_layer):
-
+        self.line_name = line_layer.name() 
+        print(f'line_layer name: {self.line_name}')
         for feature in line_layer.getFeatures():
             line_geometry = feature.geometry()
             self.handle_line_geometry(line_geometry)
@@ -1689,4 +1691,4 @@ class CrossVectors:
 
 
     def load_surface(self):
-        load_dict_from_json()
+        load_dict_from_json('MUPINE_KITD_TSX_EW_20231109_Xf5zjwqa2A2E-D20231109-crossSectionLine-20231220_164312')
