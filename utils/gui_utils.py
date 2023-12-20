@@ -51,24 +51,35 @@ def save_dict_to_json(sliding_surface_data, layer_name, field_name, line_name):
             x = msg.exec_()
 
 
-def load_dict_from_json(filename):
+def load_dict_from_json():
     """
-    Load a dictionary from a JSON file.
-
-    Parameters:
-    filename (str): The name of the JSON file to load.
-
+    Open a file dialog, select a JSON file, and load a dictionary from the file.
+    
     Returns:
-    dict: The dictionary loaded from the JSON file.
+    dict: The loaded dictionary from the JSON file, or None if an error occurs.
     """
-    try:
-        with open(filename, 'r') as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"An error occurred while trying to load the dictionary from a JSON file: {e}")
+    # Open the file dialog and get the file path
+    file_path, _ = QFileDialog.getOpenFileName(filter="JSON files (*.json)")
+    
+    if file_path:
         # Create a message box
-        msg = QMessageBox()   
-        msg.setWindowTitle("ERROR MESSAGE")
-        msg.setText(f"An error occurred while trying to load the dictionary from a JSON file: {e}.")
+        msg = QMessageBox()
+        msg.setWindowTitle("INFO MESSAGE")
+        msg.setText(f"File {file_path} selected.")
         x = msg.exec_()
+        
+        try:
+            # Open the file in read mode and load the dictionary from the JSON file
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+            return data
+        except Exception as e:
+            print(f"An error occurred while trying to load the dictionary from the JSON file: {e}")
+            
+            # Create a message box
+            msg = QMessageBox()
+            msg.setWindowTitle("ERROR MESSAGE")
+            msg.setText(f"An error occurred while trying to load the dictionary from the JSON file: {e}.")
+            x = msg.exec_()
+            return None
 
