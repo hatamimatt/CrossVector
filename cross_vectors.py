@@ -130,6 +130,7 @@ class CrossVectors:
         self.line_name = None 
         self.layer_name = None 
         self.field_name = None
+        self.sliding_surface_data = None
 
 
         # Save reference to the QGIS interface
@@ -182,7 +183,9 @@ class CrossVectors:
         self.line_tool.lineDrawnSignal.connect(self.lineDrawn)
 
 
+
     def process_line_layer(self, line_layer):   
+        self.line_name = line_layer.name() 
         """ 
         Processes a given line layer.   
 
@@ -1094,6 +1097,7 @@ class CrossVectors:
             
             # adding legends
         df = pd.DataFrame(extracted_data)
+        self.sliding_surface_data = df
         print('df for caterina: {df}')
         printTest(f' this is priniting with landslide intersections being called from within cross vectors: {df}')
         
@@ -1191,6 +1195,7 @@ class CrossVectors:
 
 
     def process_line_layer(self, line_layer):
+
         for feature in line_layer.getFeatures():
             line_geometry = feature.geometry()
             self.handle_line_geometry(line_geometry)
@@ -1679,7 +1684,8 @@ class CrossVectors:
         testPrint()
         print(f'self.layer_name: {self.layer_name}')
         print(f'self.field_name: {self.field_name}')
-        save_dict_to_json({}, self.layer_name, self.field_name, 'line_name_here')
+        print(f'self.line_name: {self.line_name}')
+        save_dict_to_json(self.sliding_surface_data, self.layer_name, self.field_name, self.line_name)
 
 
     def load_surface(self):
