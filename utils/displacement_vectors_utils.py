@@ -39,7 +39,7 @@ from . import math_utils as math
 
 # Define a function to prepare the data for further calculations
 def prepare_data(
-    data: pd.DataFrame,
+    raw_data: pd.DataFrame,
     selected_rows: Union[List[int], None] = None,
     selected_position: str = "Foot",
     known_position_index: int = 0,
@@ -53,7 +53,7 @@ def prepare_data(
 
     Parameters
     ----------
-    data : pd.DataFrame
+    raw_data : pd.DataFrame
         The input data. It should have four columns: 'x', 'y', 'angle', and 'length'.
     selected_rows : list of int or None, optional
         The rows of the data to be selected. If None, all rows are selected. Default is None.
@@ -87,6 +87,8 @@ def prepare_data(
     >>> prepare_data(data, selected_rows, selected_position, known_position_index, impute_angle)
     {'x': array([10, 12, 15]), 'y': array([20, 22, 25]), 'alpha': array([30, 40, 50]), 'x_filtered': array([10, 12, 15]), 'y_filtered': array([20, 22, 25]), 'alpha_filtered': array([30, 40, 50]), 'beta_filtered': array([210, 220, 230]), 'm_filtered': array([-0.57735027, -0.36397023, -0.26794919])}
     """
+    data = raw_data.copy()
+    
     # Check if the angles are descending
     data=math.check_angles(data)
     
