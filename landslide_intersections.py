@@ -87,7 +87,10 @@ def calculate_landslide_intersections(
     preprocessed_data = dv.prepare_data(
         data, selected_rows, selected_position, known_position_index, impute_angle
     )
-    
+
+    if not preprocessed_data:
+        return
+        
     # Calculate coordinates
     coordinates = dv.calculate_coordinates(preprocessed_data, selected_position)
     output = {
