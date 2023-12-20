@@ -63,10 +63,13 @@ from .xml_parser import parse_xml
 from .landslide_intersections import printTest as printTest
 from .landslide_intersections import calculate_landslide_intersections as calculate_landslide_intersections
 from .utils.plott_all import plot_all
+from .utils.gui_utils import save_dict_to_json
+from .utils.gui_utils import load_dict_from_json
 from .line_draw_tool import LineDrawTool
 from .line_draw_tool import LineDrawTool
 from .resources import *
 from .test import testPrint as testPrint
+
 
 
 
@@ -124,7 +127,8 @@ class CrossVectors:
         self.legend_labels = None
         self.custom_legend = None
         
-        
+        self.line_name = None 
+        self.layer_name = None 
 
 
         # Save reference to the QGIS interface
@@ -455,6 +459,7 @@ class CrossVectors:
                 print(' cell number = 0, priesm data is given')
                 #Check for field names in the vector dataset and store them
                 self.east_layer_field = vector_dataset.get('Eastlayer', self.east_layer_field)
+                print(f'east_layer_field: {self.east_layer_field}')
                 self.north_layer_field = vector_dataset.get('NorthLayer', self.north_layer_field)
                 self.vertical_layer_field = vector_dataset.get('VerticalLayer', self.vertical_layer_field)
                 self.vector_layer_label = vector_dataset.get('VECTORLayerlabel', self.vector_layer_label)
@@ -578,6 +583,8 @@ class CrossVectors:
                 print(f' insar 2d data is given')
                 self.east_layer_name = vector_dataset.get('Eastlayer', self.east_layer_field)
                 self.east_layer_field = vector_dataset.get('Eastlayer', self.east_layer_field)
+                self.layer_name = vector_dataset.get('Eastlayer', self.east_layer_field)
+                print(f'east_layer_field: {self.east_layer_field}')
                 self.north_layer_field = vector_dataset.get('NorthLayer', self.north_layer_field)
                 self.vertical_layer_field = vector_dataset.get('VerticalLayer', self.vertical_layer_field)
                 self.vector_layer_label = vector_dataset.get('VECTORLayerlabel', self.vector_layer_label)
@@ -1660,5 +1667,9 @@ class CrossVectors:
         return normalized_direction_vector
 
 
-    def otherModules(self):
+    def save_surface(self):
         testPrint()
+        save_dict_to_json()
+
+    def load_surface(self):
+        load_dict_from_json()
