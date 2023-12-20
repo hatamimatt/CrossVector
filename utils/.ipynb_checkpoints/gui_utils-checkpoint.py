@@ -2,7 +2,7 @@ import datetime
 import json
 import os
 
-from PyQt5.QtWidgets import QApplication, QFileDialog
+from PyQt5.QtWidgets import QFileDialog
 
 
 def save_dict_to_json(sliding_surface_data, layer_name, field_name, line_name):
@@ -25,9 +25,7 @@ def save_dict_to_json(sliding_surface_data, layer_name, field_name, line_name):
     filename = layer_name + "-" + field_name + "-" + line_name + "-" + now + '.json'
     
     # Open the save file dialog and get the directory path
-    # app = QApplication([])
     dir_path = QFileDialog.getExistingDirectory()
-    # app.quit()  # Close the QApplication instance
     
     if dir_path:
         try:
