@@ -90,8 +90,8 @@ def prepare_data(
     """
     data = raw_data.copy()
     
-    # Adjust the angle 'angle' in the dataset. Originally, 'angle' is defined with respect to the horizontal axis, with positive values indicating a negative y-direction. This line of code redefines 'angle' to be with respect to the vertical axis, with positive values indicating a positive x-direction. For example, an original 'angle' of 5 degrees becomes 85 degrees, and an 'angle' of -7 degrees becomes 7 degrees.
-    data.angle = np.where(data.angle >= 0, 90 - data.angle, abs(data.angle))
+    # Adjust the angle 'angle' in the dataset. Originally, 'angle' is defined with respect to the horizontal axis, with positive values indicating a negative y-direction. This line of code redefines 'angle' to be with respect to the vertical axis, with positive values indicating a positive x-direction. For example, an original 'angle' of 5 degrees becomes 85 degrees, and an 'angle' of -7 degrees becomes 97 degrees.
+    data.angle = 90 - data.angle
 
     # Check the profile direction and filter the data according to the angles
     data = math.loop_until_no_change(data, selected_position)
