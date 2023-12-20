@@ -11,8 +11,9 @@ def save_dict_to_json(sliding_surface_data, layer_name, field_name, line_name):
     
     Parameters:
     sliding_surface_data (dict): The dictionary with the data to save.
-    layer_name (str): The name of the layer where the sliding surface is located.
-    line_name (str): The name of the line that intersects the sliding surface.
+    layer_name (str): The name of the layer under analysis.
+    field_name (str): The name of the field on the layer.
+    line_name (str): The name of the line where the sliding surface is calculated.
     
     Returns:
     None
@@ -26,6 +27,7 @@ def save_dict_to_json(sliding_surface_data, layer_name, field_name, line_name):
     # Open the save file dialog and get the directory path
     app = QApplication([])
     dir_path = QFileDialog.getExistingDirectory()
+    app.quit()  # Close the QApplication instance
     
     if dir_path:
         try:
