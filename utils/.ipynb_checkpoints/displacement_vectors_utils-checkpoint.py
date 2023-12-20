@@ -103,16 +103,27 @@ def prepare_data(
     print(f' data being printed from displacement vectors utils after being sorted on x: {data}')
 
     if data.empty or len(data) < 2:
-    print(
-        "ERROR - For this particular geometry, it is impossible to calculate the rotational or roto-translational sliding surface."
-    )
-    return {}
+        print(
+            "ERROR - For this particular geometry, it is impossible to calculate the rotational or roto-translational sliding surface."
+        )
+        # Create a message box
+        msg = QMessageBox()   
+        msg.setWindowTitle("ERROR MESSAGE")
+        msg.setText("For this particular geometry, it is impossible to calculate the rotational or roto-translational sliding surface.")
+        x = msg.exec_()
+
+        return {}
     
     # Filter the data by the selected rows, if any
     if selected_rows is not None:
             # Check if any selected row is out of bounds
         if max(selected_rows) >= len(data):
             print("WARNING - One or more selected rows are out of bounds.")
+            # Create a message box
+            msg = QMessageBox()   
+            msg.setWindowTitle("WARNING MESSAGE")
+            msg.setText("One or more of the selected rows are out of range. Your selection will be ignored, and the entire dataset will be used for the analysis.")
+            x = msg.exec_()
             pass
         else:
             data = data.iloc[selected_rows].reset_index(drop=True)

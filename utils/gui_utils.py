@@ -2,7 +2,7 @@ import datetime
 import json
 import os
 
-from PyQt5.QtWidgets import QFileDialog
+from PyQt5.QtWidgets import QFileDialog, QMessageBox
 
 
 def save_dict_to_json(sliding_surface_data, layer_name, field_name, line_name):
@@ -36,8 +36,19 @@ def save_dict_to_json(sliding_surface_data, layer_name, field_name, line_name):
             with open(file_path, 'w') as f:
                 json.dump(sliding_surface_data, f)
                 
+            # Create a message box
+            msg = QMessageBox()                
+            msg.setWindowTitle("INFO MESSAGE")
+            msg.setText("Data correctly saved.")
+            x = msg.exec_()
+                
         except Exception as e:
             print(f"An error occurred while trying to save the dictionary to a JSON file: {e}")
+            # Create a message box
+            msg = QMessageBox()   
+            msg.setWindowTitle("ERROR MESSAGE")
+            msg.setText(f"An error occurred while trying to save the dictionary to a JSON file: {e}.")
+            x = msg.exec_()
 
 
 def load_dict_from_json(filename):
@@ -55,4 +66,9 @@ def load_dict_from_json(filename):
             return json.load(f)
     except Exception as e:
         print(f"An error occurred while trying to load the dictionary from a JSON file: {e}")
+            # Create a message box
+            msg = QMessageBox()   
+            msg.setWindowTitle("ERROR MESSAGE")
+            msg.setText(f"An error occurred while trying to load the dictionary from a JSON file: {e}.")
+            x = msg.exec_()
 
