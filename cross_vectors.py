@@ -28,7 +28,6 @@ from qgis.PyQt.QtWidgets import QAction
 from qgis.core import (QgsPoint,
                        QgsRasterLayer,
                        QgsProject,
-                       QgsRasterLayer, 
                        QgsRaster,
                        QgsFields, 
                        QgsFeature, 
@@ -37,7 +36,10 @@ from qgis.core import (QgsPoint,
                        QgsPointXY,
                        QgsSpatialIndex,
                        QgsVector,
-                       QgsField 
+                       QgsField, 
+                       QgsWkbTypes,
+                       QgsCoordinateReferenceSystem,
+                       QgsCoordinateTransform
 )
    
 from qgis.PyQt.QtCore import (QVariant,
@@ -46,8 +48,6 @@ from qgis.PyQt.QtCore import (QVariant,
                               QCoreApplication
 )
                               
-
-
 
 # Third-party library imports
 import os.path
@@ -399,7 +399,7 @@ class CrossVectors:
         # Check if the parse_xml function returned valid data
         if isinstance(parsed_data, tuple) and len(parsed_data) == 4:
             self.dtm_layers, self.los_datasets, self.vector_datasets, self.radar_datasets = parsed_data
-            print(f'self.radar_datasets: {self.radar_datasets}  ')
+            
         else:
             # Provide default values or handle the case where data is missing in the XML
             self.dtm_layers = []
@@ -442,7 +442,7 @@ class CrossVectors:
 
         # Step 1: Getting elevation data
         distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
-
+        print(f'self.dtm_layer: {self.dtm_layer}')
 
         # Step 2: Get the XML file path from your configuration
         xml_file_path = os.path.join(os.getenv('APPDATA'), 'QGIS', 'QGIS3', 'profiles', 'default', 'python', 'plugins', 'combined_datasets.xml')  # Replace with the actual path
@@ -697,7 +697,7 @@ class CrossVectors:
 
                         if count_features > 0:
                             average_east_value = sum_east_values / count_features
-                            print(f'average_east_value: {average_east_value}')
+                            #print(f'average_east_value: {average_east_value}')
                             average_vertical_value = sum_vertical_values / count_features
 
                             
@@ -718,7 +718,7 @@ class CrossVectors:
                     distance = midpoint.distance(QgsPoint(feature_coords[0], feature_coords[1]))
                     magnitude_2d = math.sqrt(average_east_value **2 + 0)
                     magnitude_3d = math.sqrt(magnitude_2d **2 + average_vertical_value **2)
-
+                    print(f'magnitude_3d: {magnitude_3d}')
                     magnitude = magnitude_3d * 0.001 # Convert to meters
 
                     alpha = 1 if average_east_value > 0 else -1
@@ -782,15 +782,13 @@ class CrossVectors:
                 print("No value found for los_layer_name. Skipping...")
                 continue
 
-            los_layer = QgsProject.instance().mapLayersByName(los_layer_name)
+            los_layer = QgsProject.instance().mapLayersByName(los_layer_name)[0]
 
             
             if not los_layer:
                 print(f"Couldn't find a 'los' layer named {los_layer_name} in the project. Skipping...")
                 continue
 
-            los_layer = los_layer[0]
-            
             los_layer.removeSelection()
 
 
@@ -803,11 +801,8 @@ class CrossVectors:
             for i in range(len(self.segments) - 1):
                 # Create a segment geometry from two points
                 segment_geometry = QgsGeometry.fromPolyline([QgsPoint(self.segments[i].asPoint()), QgsPoint(self.segments[i+1].asPoint())])
-
-
                 # Buffer the segment
                 segment_buffer_geometry = segment_geometry.buffer(buffer_radius, 0)
-                
                 potential_segment_matches = spatial_index.intersects(segment_buffer_geometry.boundingBox())
                 
                 sum_values = 0
@@ -822,6 +817,7 @@ class CrossVectors:
                 
                 # Calculate average and store it
                 average_value = round(sum_values / count_features, 2) if count_features else 0
+                print(f'average value: {average_value}')
                 segment_averages.append(average_value)
 
                 los_vectors_data = []
@@ -877,7 +873,7 @@ class CrossVectors:
 
 
         for radar_dataset in radar_datasets:
-            print(f'printing radar dataset in lineDrawn method: {radar_dataset}')
+            #print(f'printing radar dataset in lineDrawn method: {radar_dataset}')
             self.radar_layer_label = radar_dataset.get('RADARlabel', self.radar_layer_label)
             self.radar_layer_scale_factor = radar_dataset.get('RADARLayerScale', self.radar_layer_scale_factor)            
             self.radar_layer_color = radar_dataset.get('RADARcolor', self.radar_layer_color)
@@ -888,16 +884,79 @@ class CrossVectors:
             self.radar_layer_cell_number = radar_dataset.get('RADARBufferCellSize', self.radar_layer_cell_number)
 
             buffer_radius = float(radar_dataset.get('RADARBufferRadius', 0.0))  # Retrieve the buffer radius from the vector dataset
-            print(f'buffer radius: {buffer_radius}')
             radar_buffer_geometry = line_geometry.buffer(buffer_radius, 0)  # Adjust buffer radius and segments as needed
-            print(f'radar buffer geometry: {radar_buffer_geometry}')
             self.segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(),int(float(self.radar_layer_cell_number)))]  
-            print(f"number of segments: {self.segments}")
+
+            print(f'self.radar_layer_location: {self.radar_location}')
+            radar_layer_locationn = QgsProject.instance().mapLayersByName(self.radar_location)[0]
+            print(f' radar real location: {radar_layer_locationn}')
 
 
 
 
 
+            ## Reading the radar location X, Y
+            feature = next(radar_layer_locationn.getFeatures())
+            # Get the feature's geometry
+            geom = feature.geometry()
+
+            # Extract the coordinates
+            if geom.type() == QgsWkbTypes.PointGeometry:
+                point = geom.asPoint()
+                x_coord = point.x()
+                y_coord = point.y()
+                print("Point coordinates:", x_coord, y_coord)
+
+            ## Finding the Z for radar location from dtm map
+            provider = self.dtm_layer.dataProvider()
+
+            # Calculate the resolution of the raster
+            x_res = provider.extent().width() / provider.xSize()
+            y_res = provider.extent().height() / provider.ySize()
+
+
+            # Calculate the pixel coordinates
+            x_pixel = int((x_coord - provider.extent().xMinimum()) / x_res)
+
+            # Invert the Y-coordinate calculation
+            y_pixel = provider.ySize() - int((y_coord - provider.extent().yMinimum()) / y_res) - 1
+            print("Pixel coordinates:", x_pixel, y_pixel)
+
+            # Fetch the pixel value
+            block = provider.block(1, provider.extent(), provider.xSize(), provider.ySize())
+            radar_height = block.value( y_pixel, x_pixel)
+            print("Pixel value at location:", radar_height)
+
+           # Combine X, Y, and Z into a tuple
+            radar_xyz = (x_coord, y_coord, radar_height)
+            print("Radar XYZ coordinates:", radar_xyz)
+
+            radar_layer = QgsProject.instance().mapLayersByName(self.radar_layer_name)[0]
+            dtm_provider = self.dtm_layer.dataProvider()
+            radar_provider = radar_layer.dataProvider()
+
+
+            # Calculate the resolution of the raster layers
+            dtm_x_res = dtm_provider.extent().width() / dtm_provider.xSize()
+            dtm_y_res = dtm_provider.extent().height() / dtm_provider.ySize()
+
+        # Iterate over the line
+            # doing it for 100 points, to be modified later after talking with Davide
+            for distance in np.linspace(0, line_geometry.length(), num=100):  # Adjust 'num' for desired precision
+                # Interpolate a point along the line
+                point = line_geometry.interpolate(distance).asPoint()
+
+                # Convert real-world coordinates to pixel values for DTM layer
+                dtm_x_pixel = int((point.x() - dtm_provider.extent().xMinimum()) / dtm_x_res)
+                dtm_y_pixel = dtm_provider.ySize() - int((point.y() - dtm_provider.extent().yMinimum()) / dtm_y_res) - 1
+
+                # Fetch pixel value from DTM layer
+                dtm_block = dtm_provider.block(1, dtm_provider.extent(), dtm_provider.xSize(), dtm_provider.ySize())
+                dtm_value = dtm_block.value(dtm_x_pixel, dtm_y_pixel)
+
+                # Create a tuple (X, Y, Z) where Z is the DTM value
+                xyz_tuple = (point.x(), point.y(), dtm_value)
+                print(f"XYZ coordinates: {xyz_tuple}")
 
 
         # Get the current CRS from the QGIS project
