@@ -4,6 +4,7 @@ def parse_xml(xml_file_path):
     dtm_layers = []
     los_datasets = []
     vector_datasets = []
+    radar_datasets = []
 
     try:
         tree = ET.parse(xml_file_path)
@@ -21,29 +22,26 @@ def parse_xml(xml_file_path):
                     los_data[item.tag] = item.text
                 los_datasets.append(los_data)
 
+            # RADAR data
+            elif child.tag == 'RADARdataset':
+                radar_data = {}
+                for item in child:
+                    radar_data[item.tag] = item.text
+                radar_datasets.append(radar_data)
+
             # VECTOR data
             elif child.tag == 'VECTORdataset':
                 vector_data = {}
-                buffer_radius = 0.0  # Default buffer radius
-                for item in child:
-                    if item.tag == 'BufferRadius':
-                        # Convert buffer radius to float and store it
-                        buffer_radius = float(item.text)
-                    else:
-                        vector_data[item.tag] = item.text
-                vector_data['BufferRadius'] = buffer_radius  # Store buffer radius
+                for item in child:    
+                    vector_data[item.tag] = item.text
                 vector_datasets.append(vector_data)
-                #print(vector_data)
 
-                # Print the parsed vector data for debugging
-                print("Parsed VECTORdataset:")
-                #for key, value in vector_data.items():
-                   # print(f"{key}: {value}")
+
 
     except Exception as e:
         print('Error parsing XML file: ', str(e))
         return {
             'error': f"Error parsing XML file: {str(e)}"
         }
-    #print(f'los_datasets: {los_datasets}')
-    return dtm_layers, los_datasets, vector_datasets
+    print(f'vector dataset in xml parser: {vector_datasets}')
+    return dtm_layers, los_datasets, vector_datasets, radar_datasets 

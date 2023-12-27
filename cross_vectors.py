@@ -122,6 +122,20 @@ class CrossVectors:
         self.los_layer_dipd_angle = None
 
 
+
+        self.radar_layer_label = None
+        self.radar_layer_color = None
+        self.radar_layer_name = None
+        self.radar_field_name = None
+        self.radar_layer_bufferRadius = None
+        self.radar_layer_scale_factor = None
+        self.radar_location = None
+        self.radar_layer_cell_number = None
+
+
+
+
+
         self.vector_segments = None
 
         self.legend_labels = None
@@ -210,7 +224,7 @@ class CrossVectors:
         distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
 
         # Step 2: Parse the XML file for vector and LOS datasets
-        dtm_layers, los_datasets, vector_datasets = parse_xml(self.combined_datasets_file_path)
+        dtm_layers, los_datasets, vector_datasets, radar_datasets = parse_xml(self.combined_datasets_file_path)
 
         # Step 3: Process Vector and LOS datasets
 
@@ -378,11 +392,14 @@ class CrossVectors:
     def run(self):
         """Run method that performs all the real work"""
         # Use the parse_xml function to parse the XML file
-        parsed_data = parse_xml(self.combined_datasets_file_path)
+        xml_file_path = os.path.join(os.getenv('APPDATA'), 'QGIS', 'QGIS3', 'profiles', 'default', 'python', 'plugins', 'combined_datasets.xml')  # Replace with the actual path
+
+        parsed_data = parse_xml(xml_file_path)
 
         # Check if the parse_xml function returned valid data
-        if isinstance(parsed_data, tuple) and len(parsed_data) == 3:
-            self.dtm_layers, self.los_datasets, self.vector_datasets = parsed_data
+        if isinstance(parsed_data, tuple) and len(parsed_data) == 4:
+            self.dtm_layers, self.los_datasets, self.vector_datasets, self.radar_datasets = parsed_data
+            print(f'self.radar_datasets: {self.radar_datasets}  ')
         else:
             # Provide default values or handle the case where data is missing in the XML
             self.dtm_layers = []
@@ -432,7 +449,8 @@ class CrossVectors:
 
 
         # Step 3: Call the parse_xml function to get vector datasets and buffer radii
-        dtm_layers, los_datasets, vector_datasets = parse_xml(xml_file_path)
+        dtm_layers, los_datasets, vector_datasets, radar_datasets = parse_xml(xml_file_path)
+
 
 
 
@@ -447,16 +465,18 @@ class CrossVectors:
         los_buffer_data = []  
         los_vectors_data = []
         
+        
 
 
         # Step 5: Iterate through vector datasets
+
         for vector_dataset in vector_datasets:
 
             cell_number = vector_dataset.get('CellNumber')
             if isinstance(cell_number, str):
                 cell_number = float(cell_number)
-            print(f'vector dataset cellnumber: {vector_dataset.get("CellNumber")} ')
-            print(f' cellnumber type: {type(vector_dataset.get("CellNumber"))}')
+            #print(f'vector dataset cellnumber: {vector_dataset.get("CellNumber")} ')
+            #rint(f' cellnumber type: {type(vector_dataset.get("CellNumber"))}')
 
             
             # Looping through the inSAR dataset
@@ -464,7 +484,7 @@ class CrossVectors:
                 print(' cell number = 0, priesm data is given')
                 #Check for field names in the vector dataset and store them
                 self.east_layer_field = vector_dataset.get('Eastlayer', self.east_layer_field)
-                print(f'east_layer_field: {self.east_layer_field}')
+                #print(f'east_layer_field: {self.east_layer_field}')
                 self.north_layer_field = vector_dataset.get('NorthLayer', self.north_layer_field)
                 self.vertical_layer_field = vector_dataset.get('VerticalLayer', self.vertical_layer_field)
                 self.vector_layer_label = vector_dataset.get('VECTORLayerlabel', self.vector_layer_label)
@@ -474,11 +494,14 @@ class CrossVectors:
                 
                 #print(f"vector_dataset labellll: {vector_dataset.get('VECTORLayerlabel')}")
 
-                buffer_radius = vector_dataset.get('BufferRadius', 0.0)  # Retrieve the buffer radius from the vector dataset
+                buffer_radius = float(vector_dataset.get('BufferRadius', 0.0))  # Retrieve the buffer radius from the vector dataset
 
                 # Step 6: Create a buffer geometry around the drawn line
                 buffer_geometry = line_geometry.buffer(buffer_radius, 0)  # Adjust buffer radius and segments as needed
-               
+            
+
+
+
                 # Step 7: Iterate through layers specified in the XML for this vector dataset
                 layer_keys = [self.east_layer_field, self.north_layer_field, self.vertical_layer_field]
                 
@@ -738,8 +761,8 @@ class CrossVectors:
             self.los_layer_bufferRadius = los_dataset.get('BufferRadius', self.los_layer_bufferRadius)
             self.los_layer_cell_number = los_dataset.get('LOSBufferCellSize', self.los_layer_cell_number)
             self.los_layer_label = los_dataset.get('LOSlabel', self.los_layer_label)
-            self.los_layer_dip_angle = los_dataset.get('Dip_Angle', self.los_layer_dip_angle)
-            self.los_layer_dipd_angle = los_dataset.get('DipD_Angle', self.los_layer_dipd_angle)
+            #self.los_layer_dip_angle = los_dataset.get('Dip_Angle', self.los_layer_dip_angle)
+            #self.los_layer_dipd_angle = los_dataset.get('DipD_Angle', self.los_layer_dipd_angle)
 
 
             dip = np.radians(float(los_dataset.get('Dip_angle', 0.0)))
@@ -849,7 +872,32 @@ class CrossVectors:
 
             
             # Step 8: Iterate through LOS datasets
-        
+
+
+
+
+        for radar_dataset in radar_datasets:
+            print(f'printing radar dataset in lineDrawn method: {radar_dataset}')
+            self.radar_layer_label = radar_dataset.get('RADARlabel', self.radar_layer_label)
+            self.radar_layer_scale_factor = radar_dataset.get('RADARLayerScale', self.radar_layer_scale_factor)            
+            self.radar_layer_color = radar_dataset.get('RADARcolor', self.radar_layer_color)
+            self.radar_layer_name = radar_dataset.get('RADARlayer', self.radar_layer_name)
+            self.radar_field_name = radar_dataset.get('RADARfield', self.radar_field_name)
+            self.radar_layer_bufferRadius = radar_dataset.get('RADARBufferRadius', self.radar_layer_bufferRadius)
+            self.radar_location = radar_dataset.get('RADARlocation', self.radar_location)
+            self.radar_layer_cell_number = radar_dataset.get('RADARBufferCellSize', self.radar_layer_cell_number)
+
+            buffer_radius = float(radar_dataset.get('RADARBufferRadius', 0.0))  # Retrieve the buffer radius from the vector dataset
+            print(f'buffer radius: {buffer_radius}')
+            radar_buffer_geometry = line_geometry.buffer(buffer_radius, 0)  # Adjust buffer radius and segments as needed
+            print(f'radar buffer geometry: {radar_buffer_geometry}')
+            self.segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(),int(float(self.radar_layer_cell_number)))]  
+            print(f"number of segments: {self.segments}")
+
+
+
+
+
 
 
         # Get the current CRS from the QGIS project
@@ -1068,11 +1116,11 @@ class CrossVectors:
 
             prep = vector['PerpendicularComponent']
             angle = math.degrees(vector['Beta'])  # Converting the angle from radians to degrees
-            print(f'prependicular component: {prep}')
-            print(f'angle before checking if prependicular component is negative: {angle}')
+            #print(f'prependicular component: {prep}')
+            #print(f'angle before checking if prependicular component is negative: {angle}')
             if vector['PerpendicularComponent'] < 0:
                 angle = 180 - angle
-            print(f'angle after checking if prependicular component is negative: {angle}')
+            #print(f'angle after checking if prependicular component is negative: {angle}')
 
             length = vector['Magnitude']
             extracted_data.append({'x': x - delta_x, 'y': y - delta_y , 'angle': angle, 'length': length})
@@ -1111,7 +1159,8 @@ class CrossVectors:
             plot_all(output)
             self.plot_surface = False
         ##### Integration of Caterina's code
-      
+
+
         for vector_dataset in self.vector_datasets:
              #Check for field names in the vector dataset and store them
             self.east_layer_field = vector_dataset.get('Eastlayer', self.east_layer_field)
@@ -1168,7 +1217,7 @@ class CrossVectors:
         # Get the length of the line
         length = line_geometry.length()
 
-        print(f'length: {length}')
+        
         # List to hold elevation and distance values
         elevations = []
         distances = []
@@ -1179,8 +1228,7 @@ class CrossVectors:
 
         # Sample raster at equally spaced points along the line
         distance = 0
-        print(f'distance: {distance}')
-        print(f'length: {length}')
+
         while distance <= length:
             distances.append(distance)  # add this line
             point_on_line = line_geometry.interpolate(distance).asPoint()
@@ -1215,7 +1263,7 @@ class CrossVectors:
         line_end_point = line_string[-1]
 
 
-        print(f' process_vector_datasets method running here')
+
         vector_buffer_data = []
         normalized_direction_vector = self.calculate_normalized_direction(line_geometry)
         unique_coordinates = set()
@@ -1245,7 +1293,7 @@ class CrossVectors:
                 self.vector_layer_cell_number = vector_dataset.get('CellNumber', self.vector_layer_cell_number)
                 
               
-                buffer_radius = vector_dataset.get('BufferRadius', 0.0)  # Retrieve the buffer radius from the vector dataset
+                buffer_radius = float(vector_dataset.get('BufferRadius', 0.0))  # Retrieve the buffer radius from the vector dataset
 
                 # Step 6: Create a buffer geometry around the drawn line
                 buffer_geometry = line_geometry.buffer(buffer_radius, 0)  # Adjust buffer radius and segments as needed
@@ -1304,10 +1352,7 @@ class CrossVectors:
                         magnitude_3d = math.sqrt(magnitude_2d ** 2 + vertical_disp ** 2)
                     
                         beta = -1 * math.atan(vertical_disp / magnitude_2d)
-                        print('hereeeeeeee')
-                        print(f'vertical displacement:{vertical_disp}')
-                        print(f'horizontal displacement:{magnitude_2d}')
-                        print(f'beta: {beta}')
+
                         magnitude = magnitude_3d * 0.001 # Convert to meters
 
                         projection = east_disp * normalized_direction_vector.x() + north_disp * normalized_direction_vector.y()
