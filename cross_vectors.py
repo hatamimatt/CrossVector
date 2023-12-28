@@ -65,6 +65,8 @@ from .landslide_intersections import calculate_landslide_intersections as calcul
 from .utils.plott_all import plot_all
 from .utils.gui_utils import save_dict_to_json
 from .utils.gui_utils import load_dict_from_json
+from .utils.radar_data_analysis import calculate_angles
+
 from .line_draw_tool import LineDrawTool
 from .line_draw_tool import LineDrawTool
 from .resources import *
@@ -230,9 +232,10 @@ class CrossVectors:
 
         vector_buffer_data, _ = self.process_vector_datasets(vector_datasets, line_geometry)
         los_vectors_data = self.process_los_datasets(los_datasets, line_geometry)
+        radar_vectors_data = self.process_radar_datasets(radar_datasets, line_geometry)
 
         # Step 4: Plot cross-section
-        self.plot_cross_section(distances, elevations, vector_buffer_data, los_vectors_data)
+        self.plot_cross_section(distances, elevations, vector_buffer_data, los_vectors_data, radar_vectors_data)
 
 
 
@@ -932,8 +935,8 @@ class CrossVectors:
             print("Pixel value at location:", radar_height)
 
            # Combine X, Y, and Z into a tuple
-            radar_xyz = (x_coord, y_coord, radar_height)
-            print("Radar XYZ coordinates:", radar_xyz)
+            radar_position = (x_coord, y_coord, radar_height)
+            print("Radar XYZ coordinates:", radar_position)
 
             radar_layer = QgsProject.instance().mapLayersByName(self.radar_layer_name)[0]
             dtm_provider = self.dtm_layer.dataProvider()
@@ -955,7 +958,17 @@ class CrossVectors:
 
             segment_averages = []
 
+
+            radar_vectors_data = []
+            segment_count = int(float(_dataset.get('RADARBufferCellSize', 5)))  # Default to 5 if not specified
+            segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(), segment_count + 1)]
             for i in range(len(self.segments) - 1):
+                if i == 0:
+                    cumulative_distance = 0
+                else:
+                    # Add the length of the previous segment to the cumulative distance
+                    previous_segment_length = segments[i].distance(segments[i - 1])
+                    cumulative_distance += previous_segment_length
                 # Create a segment geometry
                 segment_geometry = QgsGeometry.fromPolyline([QgsPoint(self.segments[i].asPoint()), QgsPoint(self.segments[i+1].asPoint())])
 
@@ -965,6 +978,10 @@ class CrossVectors:
                 # Initialize sum and count for averaging
                 sum_values = 0
                 count_pixels = 0
+
+                # Temporary lists to store Dip and DipDirection for each pixel
+                dip_values = []
+                dipd_values = []
 
                 # Iterate over the radar layer to find pixels within the buffer
                 for x in range(radar_provider.xSize()):
@@ -976,37 +993,46 @@ class CrossVectors:
                         # Check if this point is within the buffer
                         if segment_buffer_geometry.contains(QgsPointXY(real_x, real_y)):
                             value = radar_provider.block(1, extent, radar_provider.xSize(), radar_provider.ySize()).value(y, x)
-                            sum_values += value
-                            count_pixels += 1
+                            
+                            # Check for 'no data' value
+                            if value != 9999.0:
+                                sum_values += value
+                                count_pixels += 1
+
+                                # Calculate pixel Z position from DTM layer (if required)
+                                dtm_x_pixel = int((real_x - dtm_provider.extent().xMinimum()) / dtm_x_res)
+                                dtm_y_pixel = dtm_provider.ySize() - int((real_y - dtm_provider.extent().yMinimum()) / dtm_y_res) - 1
+                                pixel_z = dtm_provider.block(1, dtm_provider.extent(), dtm_provider.xSize(), dtm_provider.ySize()).value(dtm_y_pixel, dtm_x_pixel)
+
+                                # Calculate Dip and DipDirection
+                                pixel_position = (real_x, real_y, pixel_z)
+                                d, delta_z, alpha, beta = calculate_angles(radar_position, pixel_position)
+                                dip_values.append(beta)
+                                dipd_values.append(alpha)
 
                 # Calculate the average value for the segment
                 average_value = sum_values / count_pixels if count_pixels else 0
                 segment_averages.append(average_value)
                 print(f'segment_averages: {segment_averages}')
 
-            '''
-        # Iterate over the line
-            # doing it for 100 points, to be modified later after talking with Davide
-            for distance in np.linspace(0, line_geometry.length(), num=100):  # Adjust 'num' for desired precision
-                # Interpolate a point along the line
-                point = line_geometry.interpolate(distance).asPoint()
+                # Calculate the average Dip and DipDirection if available
+                average_dip = sum(dip_values) / len(dip_values) if dip_values else 0
+                average_dipd = sum(dipd_values) / len(dipd_values) if dipd_values else 0
 
-                # Convert real-world coordinates to pixel values for DTM layer
-                dtm_x_pixel = int((point.x() - dtm_provider.extent().xMinimum()) / dtm_x_res)
-                dtm_y_pixel = dtm_provider.ySize() - int((point.y() - dtm_provider.extent().yMinimum()) / dtm_y_res) - 1
+                # Store information about the radar vector
+                radar_vectors_data.append({
+                    'Magnitude': average_value,
+                    'Dip': average_dip,
+                    'DipDirection': average_dipd,
+                    'SegmentStart': self.segments[i].asPoint(),
+                    'SegmentEnd': self.segments[i + 1].asPoint(),
+                    'Color': self.radar_layer_color,
+                    'ScaleFactor': self.radar_layer_scale_factor,
+                    'Label': f'Radar {i+1}',
+                    'Distance': cumulative_distance,
+                })
+                #print(f'radar vectors data: {radar_vectors_data}')
 
-                # Fetch pixel value from DTM layer
-                dtm_block = dtm_provider.block(1, dtm_provider.extent(), dtm_provider.xSize(), dtm_provider.ySize())
-                dtm_value = dtm_block.value(dtm_x_pixel, dtm_y_pixel)
-
-                # Create a tuple (X, Y, Z) where Z is the DTM value
-                xyz_tuple = (point.x(), point.y(), dtm_value)
-                print(f"XYZ coordinates: {xyz_tuple}")
-            '''
-
-       
-       
-       
        
        
        
@@ -1040,13 +1066,13 @@ class CrossVectors:
         # Add the layer to the QGIS interface without saving to disk
         QgsProject.instance().addMapLayer(line_layer)
 
-        self.plot_cross_section(distances, elevations, vector_buffer_data, los_vectors_data)
+        self.plot_cross_section(distances, elevations, vector_buffer_data, los_vectors_data, radar_vectors_data)
 
      
 
 
 
-    def plot_cross_section(self, distances, elevations, vectors_data, los_vectors_data ):
+    def plot_cross_section(self, distances, elevations, vectors_data, los_vectors_data, radar_vectors_data ):
 
         fig, ax = plt.subplots(figsize=(12, 6))
         
@@ -1283,6 +1309,72 @@ class CrossVectors:
             self.vector_layer_cell_number = vector_dataset.get('CellNumber', self.vector_layer_cell_number)
             custom_legend.append(Line2D([0], [0], color= self.vector_layer_color, lw=1, label = self.vector_layer_label))  # Custom legend entry for red vectors
             legend_labels.append(self.vector_layer_label)
+
+
+
+
+        # Plotting the radar vectors
+        for vector in radar_vectors_data:
+            distance = vector['Distance']
+            segment_start_point = vector['SegmentStart']
+            segment_end_point = vector['SegmentEnd']
+            magnitude = vector['Magnitude']
+            dip = vector['Dip']
+            dipd = vector['DipDirection']
+            radar_layer_color = vector['Color']
+            radar_scale_factor = vector['ScaleFactor']
+            radar_layer_label = vector['Label']
+
+            # Find the nearest distance point on the cross-section line for radar vector
+
+            nearest_distance = min(distances, key=lambda x: abs(x - distance))
+            nearest_distance_index = distances.index(nearest_distance)
+            surface_elevation = elevations[nearest_distance_index]
+
+            start_x = nearest_distance
+            start_y = surface_elevation
+
+            # Calculate the components of the radar vector
+            NS_displacement = magnitude * math.cos(dipd)
+            EW_displacement = magnitude * math.sin(dipd)
+            vertical_displacement = magnitude * math.cos(dip)
+
+            # Calculate the 2D magnitude of the radar vector
+            magnitude_2d = (NS_displacement ** 2 + EW_displacement ** 2) ** 0.5
+
+            # Calculate the horizontal and vertical components of the radar vector
+            horizontal_component = magnitude * math.cos(-dip)
+            vertical_component = magnitude * math.sin(-dip)
+
+            # Plot the radar vector
+            ax.quiver(
+                start_x,
+                start_y,
+                horizontal_component,
+                vertical_component,
+                angles='xy',
+                scale_units='xy',
+                scale=1 * 1/ float(radar_scale_factor),
+                color=radar_layer_color,
+                linewidth=1,
+                width=0.003,
+            )
+            '''
+            # Calculate the dashed line length and ending point coordinates
+            dashed_line_length = max_elevation - start_y
+            end_x = start_x + dashed_line_length * math.cos(dipd)
+            end_y = start_y + dashed_line_length * math.cos(dipd)
+
+            # Plot the dashed line for the current vector
+            ax.plot(
+                [start_x - dashed_line_length * math.cos(dip), start_x],
+                [max_elevation, start_y],
+                linestyle='--',
+                color=radar_layer_color,
+                linewidth=0.25
+            )
+            '''
+
 
 
 
@@ -1817,6 +1909,179 @@ class CrossVectors:
 
 
         return los_vectors_data
+
+
+
+    def process_radar_datasets(self, radar_datasets, line_geometry):
+
+        normalized_direction_vector = self.calculate_normalized_direction(line_geometry)
+        if line_geometry.isMultipart():
+            # Extracts the first line string from the multi-line string
+            line_string = line_geometry.asMultiPolyline()[0]
+        else:
+            line_string = line_geometry.asPolyline()
+
+        line_start_point = line_string[0]
+        line_end_point = line_string[-1]
+        
+        for radar_dataset in radar_datasets:
+            #print(f'printing radar dataset in lineDrawn method: {radar_dataset}')
+            self.radar_layer_label = radar_dataset.get('RADARlabel', self.radar_layer_label)
+            self.radar_layer_scale_factor = radar_dataset.get('RADARLayerScale', self.radar_layer_scale_factor)            
+            self.radar_layer_color = radar_dataset.get('RADARcolor', self.radar_layer_color)
+            self.radar_layer_name = radar_dataset.get('RADARlayer', self.radar_layer_name)
+            self.radar_field_name = radar_dataset.get('RADARfield', self.radar_field_name)
+            self.radar_layer_bufferRadius = radar_dataset.get('RADARBufferRadius', self.radar_layer_bufferRadius)
+            self.radar_location = radar_dataset.get('RADARlocation', self.radar_location)
+            self.radar_layer_cell_number = radar_dataset.get('RADARBufferCellSize', self.radar_layer_cell_number)
+
+            buffer_radius = float(radar_dataset.get('RADARBufferRadius', 0.0))  # Retrieve the buffer radius from the vector dataset
+            radar_buffer_geometry = line_geometry.buffer(buffer_radius, 0)  # Adjust buffer radius and segments as needed
+            self.segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(),int(float(self.radar_layer_cell_number)))]  
+
+            print(f'self.radar_layer_location: {self.radar_location}')
+            radar_layer_locationn = QgsProject.instance().mapLayersByName(self.radar_location)[0]
+            print(f' radar real location: {radar_layer_locationn}')
+
+
+
+
+
+            ## Reading the radar location X, Y
+            feature = next(radar_layer_locationn.getFeatures())
+            # Get the feature's geometry
+            geom = feature.geometry()
+
+            # Extract the coordinates
+            if geom.type() == QgsWkbTypes.PointGeometry:
+                point = geom.asPoint()
+                x_coord = point.x()
+                y_coord = point.y()
+                print("Point coordinates:", x_coord, y_coord)
+
+            ## Finding the Z for radar location from dtm map
+            provider = self.dtm_layer.dataProvider()
+            
+            # Calculate the resolution of the raster
+            x_res = provider.extent().width() / provider.xSize()
+            y_res = provider.extent().height() / provider.ySize()
+
+
+            # Calculate the pixel coordinates
+            x_pixel = int((x_coord - provider.extent().xMinimum()) / x_res)
+
+            # Invert the Y-coordinate calculation
+            y_pixel = provider.ySize() - int((y_coord - provider.extent().yMinimum()) / y_res) - 1
+            print("Pixel coordinates:", x_pixel, y_pixel)
+
+            # Fetch the pixel value
+            block = provider.block(1, provider.extent(), provider.xSize(), provider.ySize())
+            radar_height = block.value( y_pixel, x_pixel)
+            print("Pixel value at location:", radar_height)
+
+           # Combine X, Y, and Z into a tuple
+            radar_position = (x_coord, y_coord, radar_height)
+            print("Radar XYZ coordinates:", radar_position)
+
+            radar_layer = QgsProject.instance().mapLayersByName(self.radar_layer_name)[0]
+            dtm_provider = self.dtm_layer.dataProvider()
+            radar_provider = radar_layer.dataProvider()
+            extent = radar_provider.extent()
+            x_min = extent.xMinimum()
+            y_max = extent.yMaximum()
+            x_res = extent.width() / radar_provider.xSize()
+            y_res = extent.height() / radar_provider.ySize()
+            
+
+            # Calculate the resolution of the raster layers
+            dtm_x_res = dtm_provider.extent().width() / dtm_provider.xSize()
+            dtm_y_res = dtm_provider.extent().height() / dtm_provider.ySize()
+
+
+            # Create segments along the line
+            self.segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(), int(float(self.radar_layer_cell_number)))]
+
+            segment_averages = []
+
+
+            radar_vectors_data = []
+            segment_count = int(float(radar_dataset.get('RADARBufferCellSize', 5)))  # Default to 5 if not specified
+            segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(), segment_count + 1)]
+            for i in range(len(self.segments) - 1):
+                if i == 0:
+                    cumulative_distance = 0
+                else:
+                    # Add the length of the previous segment to the cumulative distance
+                    previous_segment_length = segments[i].distance(segments[i - 1])
+                    cumulative_distance += previous_segment_length
+                # Create a segment geometry
+                segment_geometry = QgsGeometry.fromPolyline([QgsPoint(self.segments[i].asPoint()), QgsPoint(self.segments[i+1].asPoint())])
+
+                # Buffer the segment
+                segment_buffer_geometry = segment_geometry.buffer(buffer_radius, 0)
+
+                # Initialize sum and count for averaging
+                sum_values = 0
+                count_pixels = 0
+
+                # Temporary lists to store Dip and DipDirection for each pixel
+                dip_values = []
+                dipd_values = []
+
+                # Iterate over the radar layer to find pixels within the buffer
+                for x in range(radar_provider.xSize()):
+                    for y in range(radar_provider.ySize()):
+                        # Convert pixel coordinates to real-world coordinates
+                        real_x = x_min + x * x_res
+                        real_y = y_max - y * y_res
+
+                        # Check if this point is within the buffer
+                        if segment_buffer_geometry.contains(QgsPointXY(real_x, real_y)):
+                            value = radar_provider.block(1, extent, radar_provider.xSize(), radar_provider.ySize()).value(y, x)
+                            
+                            # Check for 'no data' value
+                            if value != 9999.0:
+                                sum_values += value
+                                count_pixels += 1
+
+                                # Calculate pixel Z position from DTM layer (if required)
+                                dtm_x_pixel = int((real_x - dtm_provider.extent().xMinimum()) / dtm_x_res)
+                                dtm_y_pixel = dtm_provider.ySize() - int((real_y - dtm_provider.extent().yMinimum()) / dtm_y_res) - 1
+                                pixel_z = dtm_provider.block(1, dtm_provider.extent(), dtm_provider.xSize(), dtm_provider.ySize()).value(dtm_y_pixel, dtm_x_pixel)
+
+                                # Calculate Dip and DipDirection
+                                pixel_position = (real_x, real_y, pixel_z)
+                                d, delta_z, alpha, beta = calculate_angles(radar_position, pixel_position)
+                                dip_values.append(beta)
+                                dipd_values.append(alpha)
+
+                # Calculate the average value for the segment
+                average_value = sum_values / count_pixels if count_pixels else 0
+                segment_averages.append(average_value)
+                print(f'segment_averages: {segment_averages}')
+
+                # Calculate the average Dip and DipDirection if available
+                average_dip = sum(dip_values) / len(dip_values) if dip_values else 0
+                average_dipd = sum(dipd_values) / len(dipd_values) if dipd_values else 0
+
+                # Store information about the radar vector
+                radar_vectors_data.append({
+                    'Magnitude': average_value,
+                    'Dip': average_dip,
+                    'DipDirection': average_dipd,
+                    'SegmentStart': self.segments[i].asPoint(),
+                    'SegmentEnd': self.segments[i + 1].asPoint(),
+                    'Color': self.radar_layer_color,
+                    'ScaleFactor': self.radar_layer_scale_factor,
+                    'Label': f'Radar {i+1}',
+                    'Distance': cumulative_distance,
+                })
+            print(f'radar vectors data in process radar datasets: {radar_vectors_data}')
+        return radar_vectors_data
+
+       
+       
+        
 
 
 
