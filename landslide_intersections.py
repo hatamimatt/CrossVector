@@ -105,7 +105,9 @@ def calculate_landslide_intersections(
     if "x_intersection" in output:
         # Get the known point and the started point from the output dictionary
         known_point_x = (
-            output["x_filtered"][0] if selected_position == "Head" else output["x_filtered"][-1]
+            output["x_filtered"][0]
+            if selected_position == "Head"
+            else output["x_filtered"][-1]
         )
 
         started_point_x = (
@@ -115,9 +117,11 @@ def calculate_landslide_intersections(
         )
 
         known_point_y = (
-            output["y_filtered"][0] if selected_position == "Head" else output["y_filtered"][-1]
+            output["y_filtered"][0]
+            if selected_position == "Head"
+            else output["y_filtered"][-1]
         )
-        
+
         started_point_y = (
             float(output["y_intersection"][0])
             if selected_position == "Head"
@@ -125,7 +129,11 @@ def calculate_landslide_intersections(
         )
         
         # Check if the known point is different from the selected position
-        if known_point_x != started_point_x:
+        if (
+            known_point_x != started_point_x
+            and round(known_point_x, 2) != round(float(output["xy_r_list"][0][0][0]), 2)
+            and round(known_point_y, 2) != round(float(output["xy_r_list"][0][1][0]), 2)
+        ):
             # Calculate the average number of points in the existing elements of xy_r_list
             num_points = int(np.mean([len(x) for x, y in output["xy_r_list"]]))
             
