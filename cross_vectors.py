@@ -38,8 +38,7 @@ from qgis.core import (QgsPoint,
                        QgsVector,
                        QgsField, 
                        QgsWkbTypes,
-                       QgsCoordinateReferenceSystem,
-                       QgsCoordinateTransform
+
 )
    
 from qgis.PyQt.QtCore import (QVariant,
@@ -78,53 +77,54 @@ from .test import testPrint as testPrint
 class CrossVectors:
     """QGIS Plugin Implementation."""
 
-    def __init__(self, iface):
-        """Constructor.
 
-        :param iface: An interface instance that will be passed to this class
-            which provides the hook by which you can manipulate the QGIS
-            application at run time.
-        :type iface: QgsInterface
+    def __init__(self, iface):
         """
-        # values for passing plot surface input from geocrossvectors to crossvectors
-        self.plot_surface=None 
+        Initialize the Cross Vectors plugin.
+
+        Args:
+            iface (QgsInterface): An interface instance allowing manipulation of the QGIS application at runtime.
+        """
+
+        # Attributes for interfacing with other plugin components
+        self.plot_surface = None 
         self.SelectedPosition = None
         self.SelectedRows = None
         self.KnownPositionIndex = None 
 
+        # Attributes for managing data layers and datasets
+        self.dtm_layers = []               # Digital Terrain Model layers
+        self.los_datasets = []             # Line of Sight datasets
+        self.vector_datasets = []          # Vector datasets
+        self.segment_length = None         # Length of each segment
+        self.segments = None               # Segments data
+        self.line_start_point = None       # Start point of the line
+        self.line_end_point = None         # End point of the line
+        self.line_direction_vector = None  # Direction vector of the line
 
+        # File path for storing combined datasets
+        app_data_path = os.getenv('APPDATA')
+        self.combined_datasets_file_path = os.path.join(
+            app_data_path, 'QGIS', 'QGIS3', 'profiles', 'default', 'python', 'plugins', 'combined_datasets.xml'
+        )
 
-        # Declare instance attributes for storing data
-        self.dtm_layers = []
-        self.los_datasets = []
-        self.vector_datasets = []
-        self.segment_length = None
-        self.segments = None
-        self.line_start_point = None
-        self.line_end_point = None
-        self.line_direction_vector = None
-        self.combined_datasets_file_path = os.path.join(os.getenv('APPDATA'), 'QGIS', 'QGIS3', 'profiles', 'default', 'python', 'plugins', 'combined_datasets.xml')
-
-        self.east_layer_field = None
-        self.north_layer_field = None
-        self.vertical_layer_field = None
+        # Layer-specific attributes for vector and LOS datasets
+        # Vector layer attributes
         self.vector_layer_label = None
         self.vector_layer_color = None
         self.vector_layer_bufferRadius = None
         self.vector_layer_cell_number = None
 
+        # LOS layer attributes
         self.los_layer_name = None
-        self.los_field_name = None
         self.los_layer_color = None
         self.los_layer_bufferRadius = None
         self.los_layer_cell_number = None
         self.los_layer_label = None
-        self.los_layer_bufferRadius = None
         self.los_layer_dip_angle = None
         self.los_layer_dipd_angle = None
 
-
-
+        # Radar layer specific attributes
         self.radar_layer_label = None
         self.radar_layer_color = None
         self.radar_layer_name = None
@@ -134,70 +134,89 @@ class CrossVectors:
         self.radar_location = None
         self.radar_layer_cell_number = None
 
-
-
-
-
+        # Attributes for additional plugin functionality
         self.vector_segments = None
-
         self.legend_labels = None
         self.custom_legend = None
-        
         self.line_name = None 
         self.layer_name = None 
         self.field_name = None
         self.sliding_surface_data = None
 
-
-        # Save reference to the QGIS interface
+        # Initialize QGIS interface and plugin UI elements
         self.iface = iface
-        # initialize plugin directory
         self.plugin_dir = os.path.dirname(__file__)
+        self.initLocale()
+        self.actions = []
+        self.menu = self.tr(u'&Cross Vectors')
+        self.first_start = None
+        self.initLineTool()
 
-        # initialize locale
+
+    def initLocale(self):
+        """Initialize plugin locale settings."""
         locale = QSettings().value('locale/userLocale')[0:2]
         locale_path = os.path.join(
-            self.plugin_dir,
-            'i18n',
-            'CrossVectors_{}.qm'.format(locale))
+            self.plugin_dir, 'i18n', 'CrossVectors_{}.qm'.format(locale)
+        )
 
         if os.path.exists(locale_path):
             self.translator = QTranslator()
             self.translator.load(locale_path)
             QCoreApplication.installTranslator(self.translator)
 
-        self.actions = []
-        self.menu = self.tr(u'&Cross Vectors')
 
-        # Check if plugin was started the first time in current QGIS session
-        # Must be set in initGui() to survive plugin reloads
-        self.first_start = None
-
-        # Connect the lineDrawn method to the lineDrawnSignal only once during initialization
-        self.line_tool = None  # Initialize line_tool as None
-        self.line_drawn_connected = False  # Flag to track if the connection is made
-        self.connectLineDrawnSignal()  # Call the method to connect the signal
-
+    def initLineTool(self):
+        """Initialize the line drawing tool and connect signals."""
+        self.line_tool = None
+        self.line_drawn_connected = False
+        self.connectLineDrawnSignal()
 
 
     def start(self, dtm_layer=None, line_layer=None, plot_surface=None, SelectedPosition=None, SelectedRows=None, KnownPositionIndex=None):
+        """
+        Initializes the plugin with specified parameters and prepares it for processing.
+
+        Args:
+            dtm_layer: The Digital Terrain Model layer to be used. Default is None.
+            line_layer: The layer containing line data. If provided, processes this layer; otherwise, initiates line drawing. Default is None.
+            plot_surface: The surface for plotting data. Default is None.
+            SelectedPosition: The selected position data. Default is None.
+            SelectedRows: The selected rows in the data. Default is None.
+            KnownPositionIndex: The index of a known position in the data. Default is None.
+        """
+
+        # Assigning provided arguments to the class attributes
         self.plot_surface = plot_surface
         self.SelectedPosition = SelectedPosition
         self.SelectedRows = SelectedRows
         self.KnownPositionIndex = KnownPositionIndex
         self.dtm_layer = dtm_layer
-        if line_layer:
-            self.process_line_layer(line_layer)
-        else:
-            self.initiate_line_drawing()
 
+        # Processing the line layer if provided, otherwise initiating line drawing
+        if line_layer:
+            self.process_line_layer(line_layer)  # Process the provided line layer
+        else:
+            self.initiate_line_drawing()         # Start line drawing if no line layer is provided
 
 
     def initiate_line_drawing(self):
-        self.line_tool = LineDrawTool(self.iface.mapCanvas(), self.dtm_layer)
-        self.iface.mapCanvas().setMapTool(self.line_tool)
-        self.line_tool.lineDrawnSignal.connect(self.lineDrawn)
+        """
+        Initializes the line drawing tool and sets it as the current map tool in the QGIS interface.
 
+        This method sets up the LineDrawTool, which allows users to draw lines on the map canvas.
+        Once a line is drawn, it connects a signal to handle the drawn line.
+        """
+
+        # Create an instance of LineDrawTool with the current map canvas and the DTM layer
+        self.line_tool = LineDrawTool(self.iface.mapCanvas(), self.dtm_layer)
+
+        # Set the LineDrawTool as the current map tool on the map canvas
+        self.iface.mapCanvas().setMapTool(self.line_tool)
+
+        # Connect the lineDrawnSignal from LineDrawTool to the lineDrawn method
+        # This ensures that once a line is drawn, the lineDrawn method is called
+        self.line_tool.lineDrawnSignal.connect(self.lineDrawn)
 
 
     def process_line_layer(self, line_layer):   
@@ -214,33 +233,41 @@ class CrossVectors:
             line_geometry = feature.geometry()  
             self.handle_line_geometry(line_geometry)    
 
-
-
     
     def handle_line_geometry(self, line_geometry):
-        print(f'handle_line_geometry method running')
+        """
+        Handles the geometry of a drawn line and processes related datasets.
+
+        This method is responsible for:
+        1. Obtaining elevation data along the line.
+        2. Parsing combined datasets from an XML file.
+        3. Processing vector, LOS (Line of Sight), and radar datasets.
+        4. Plotting the cross-section based on the processed data.
+
+        Args:
+            line_geometry: The geometry of the line drawn on the map.
+        """
+
+        # Log the running of the method
+        print('handle_line_geometry method running')
+
+        # Step 1: Getting elevation data along the line
         if self.dtm_layer:
             distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
 
-        # Step 1: Getting elevation data
-        distances, elevations = self.get_elevation_along_line(self.dtm_layer, line_geometry)
-
-        # Step 2: Parse the XML file for vector and LOS datasets
+        # Step 2: Parse the XML file for combined datasets
         dtm_layers, los_datasets, vector_datasets, radar_datasets = parse_xml(self.combined_datasets_file_path)
 
-        # Step 3: Process Vector and LOS datasets
-
+        # Step 3: Process Vector, LOS, and Radar datasets
+        # Process vector datasets and obtain buffer data
         vector_buffer_data, _ = self.process_vector_datasets(vector_datasets, line_geometry)
+        # Process LOS datasets
         los_vectors_data = self.process_los_datasets(los_datasets, line_geometry)
+        # Process radar datasets
         radar_vectors_data = self.process_radar_datasets(radar_datasets, line_geometry)
 
-        # Step 4: Plot cross-section
+        # Step 4: Plot the cross-section using the obtained data
         self.plot_cross_section(distances, elevations, vector_buffer_data, los_vectors_data, radar_vectors_data)
-
-
-
-
-
 
 
     def tr(self, message):
@@ -256,6 +283,7 @@ class CrossVectors:
         """
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
         return QCoreApplication.translate('CrossVectors', message)
+
 
 
     def add_action(
@@ -358,74 +386,141 @@ class CrossVectors:
 
 
     def startDrawingRaster(self, dtm_layer):
-        self.dtm_layer = dtm_layer  # Store dtm_layer as an instance attribute
+        """
+        Initializes the raster drawing process with the specified Digital Terrain Model (DTM) layer.
+
+        This method sets up the line drawing tool specifically for raster data. When a line is drawn
+        on the map canvas, it connects a signal to handle the drawn line in the context of the DTM layer.
+
+        Args:
+            dtm_layer: The Digital Terrain Model layer to be used for raster drawing.
+        """
+
+        # Assign the provided DTM layer to an instance attribute for later use
+        self.dtm_layer = dtm_layer
+
+        # Create an instance of LineDrawTool for the DTM layer
         self.line_tool = LineDrawTool(self.iface.mapCanvas(), dtm_layer)
+
+        # Set the created LineDrawTool as the current map tool on the map canvas
         self.iface.mapCanvas().setMapTool(self.line_tool)
+
+        # Connect the lineDrawnSignal from the LineDrawTool to the lineDrawn method
+        # This enables handling the drawn line specific to the raster (DTM) context
         self.line_tool.lineDrawnSignal.connect(self.lineDrawn)
-
-
+  
+  
+  
     def onDrawLineClicked(self):
-        # Run the plugin logic to initialize and parse the XML file
+        """
+        Handles the event when the 'Draw Line' button is clicked in the plugin interface.
+
+        This method initiates the plugin's main logic and then checks for the availability of DTM (Digital Terrain Model) layers.
+        If DTM layers are available, it begins the line drawing process on the first available DTM layer.
+        """
+
+        # Initialize and run the plugin's main logic, including XML file parsing
         self.run()
 
-        # Check if DTM layers are available, and if so, start drawing
+        # Check for the availability of DTM layers
         if self.dtm_layers:
-            dtm_layer_name = self.dtm_layers[0]  # Assuming you want to use the first DTM layer name
-            
-            # Fetch the actual QgsRasterLayer object using the name
+            # Use the name of the first DTM layer
+            dtm_layer_name = self.dtm_layers[0]
+
+            # Retrieve the actual QgsRasterLayer object using the layer name
             dtm_layer = QgsProject.instance().mapLayersByName(dtm_layer_name)
-            
+
+            # Ensure the DTM layer exists in the project
             if not dtm_layer:
                 print(f"Couldn't find a layer named {dtm_layer_name} in the project.")
                 return
 
-            # Check if line_tool is initialized and connect the signal if not connected
+            # Initialize the line drawing tool for raster (DTM) layer if not already done
             if not self.line_tool:
-                self.startDrawingRaster(dtm_layer[0])  # since mapLayersByName returns a list, take the first item
+                # Since mapLayersByName returns a list, use the first item (the DTM layer)
+                self.startDrawingRaster(dtm_layer[0])
 
-                
+
+
     def connectLineDrawnSignal(self):
-        # Connect the lineDrawn method to the lineDrawnSignal
+        """
+        Connects the 'lineDrawn' method to the 'lineDrawnSignal' of the line drawing tool.
+
+        This method ensures that when a line is drawn on the map canvas using the line tool,
+        the 'lineDrawn' method is triggered to handle the drawn line. It checks and connects
+        the signal only if it hasn't been connected already.
+        """
+
+        # Check if the lineDrawn signal is not already connected
         if not self.line_drawn_connected:
+            # Ensure that the line drawing tool is initialized
             if self.line_tool:
+                # Connect the lineDrawn method to the lineDrawnSignal of the line tool
                 self.line_tool.lineDrawnSignal.connect(self.lineDrawn)
+
+                # Update the flag to indicate that the connection has been established
                 self.line_drawn_connected = True
 
 
-    def run(self):
-        """Run method that performs all the real work"""
-        # Use the parse_xml function to parse the XML file
-        xml_file_path = os.path.join(os.getenv('APPDATA'), 'QGIS', 'QGIS3', 'profiles', 'default', 'python', 'plugins', 'combined_datasets.xml')  # Replace with the actual path
 
+    def run(self):
+        """
+        Executes the primary logic of the plugin.
+
+        This method parses an XML file to retrieve necessary dataset information and initializes the drawing process
+        if Digital Terrain Model (DTM) layers are available. It handles scenarios where the XML file does not
+        provide the expected data by setting default values.
+        """
+
+        # Construct the file path for the combined datasets XML file
+        xml_file_path = os.path.join(
+            os.getenv('APPDATA'), 'QGIS', 'QGIS3', 'profiles', 'default', 'python', 'plugins', 'combined_datasets.xml'
+        )  # Replace with the actual path
+
+        # Parse the XML file to retrieve dataset information
         parsed_data = parse_xml(xml_file_path)
 
-        # Check if the parse_xml function returned valid data
+        # Validate the parsed data
         if isinstance(parsed_data, tuple) and len(parsed_data) == 4:
+            # Unpack parsed data into respective dataset variables
             self.dtm_layers, self.los_datasets, self.vector_datasets, self.radar_datasets = parsed_data
-            
         else:
-            # Provide default values or handle the case where data is missing in the XML
+            # Set default values in case of invalid or missing data in the XML
             self.dtm_layers = []
             self.los_datasets = []
             self.vector_datasets = []
+            self.radar_datasets = []
 
+        # Proceed if DTM layers are available
         if self.dtm_layers:
-            dtm_layer_name = self.dtm_layers[0]  # Get the first DTM layer name
+            # Get the name of the first DTM layer
+            dtm_layer_name = self.dtm_layers[0]
+
+            # Fetch the actual DTM layer object using its name
             dtm_layer = QgsProject.instance().mapLayersByName(dtm_layer_name)
 
             if dtm_layer:
-                self.startDrawingRaster(dtm_layer[0])  # Start drawing immediately
+                # If the DTM layer is found, start the raster drawing process
+                self.startDrawingRaster(dtm_layer[0])
             else:
+                # Log an error message if the DTM layer is not found in the project
                 print(f"Couldn't find a layer named {dtm_layer_name} in the project for dtm_layer_name.")
 
-
-        # Retrieve variables of vectors from the parsed XML data
 
 
 
     
     def lineDrawn(self, line_geometry):
-                # Compute the Direction and Normal Vectors of the Profile Line
+        """
+        Processes a drawn line in QGIS by performing a series of geospatial computations.
+        It calculates direction vectors, creates buffers, and extracts data from various
+        datasets (e.g., elevation, vector, radar) based on the line geometry.
+
+        Args:
+        line_geometry (QgsGeometry): The geometry of the line drawn in QGIS.
+        """
+
+
         line_start_point = line_geometry.asPolyline()[0]
         line_end_point = line_geometry.asPolyline()[-1]
 
@@ -455,9 +550,6 @@ class CrossVectors:
         dtm_layers, los_datasets, vector_datasets, radar_datasets = parse_xml(xml_file_path)
 
 
-
-
-
         if not dtm_layers:
             print("No DTM layers found in the XML file.")
             return
@@ -471,23 +563,23 @@ class CrossVectors:
         
 
 
-        # Step 5: Iterate through vector datasets
-
+        
+        # Processing data passed by Vector3D tab in the configuration window
         for vector_dataset in vector_datasets:
-
+            
+            # Convert 'CellNumber' from string to float if necessary
             cell_number = vector_dataset.get('CellNumber')
             if isinstance(cell_number, str):
                 cell_number = float(cell_number)
-            #print(f'vector dataset cellnumber: {vector_dataset.get("CellNumber")} ')
-            #rint(f' cellnumber type: {type(vector_dataset.get("CellNumber"))}')
+           
 
             
-            # Looping through the inSAR dataset
+            # Handling the Prisms dataset
             if cell_number == 0:
-                print(' cell number = 0, priesm data is given')
-                #Check for field names in the vector dataset and store them
+                print(' cell number = 0, handling Prism data')
+
+                # Store layer field values from the vector dataset
                 self.east_layer_field = vector_dataset.get('Eastlayer', self.east_layer_field)
-                #print(f'east_layer_field: {self.east_layer_field}')
                 self.north_layer_field = vector_dataset.get('NorthLayer', self.north_layer_field)
                 self.vertical_layer_field = vector_dataset.get('VerticalLayer', self.vertical_layer_field)
                 self.vector_layer_label = vector_dataset.get('VECTORLayerlabel', self.vector_layer_label)
@@ -495,23 +587,20 @@ class CrossVectors:
                 self.vector_layer_bufferRadius = vector_dataset.get('BufferRadius', self.vector_layer_bufferRadius)
                 self.vector_layer_cell_number = vector_dataset.get('CellNumber', self.vector_layer_cell_number)
                 
-                #print(f"vector_dataset labellll: {vector_dataset.get('VECTORLayerlabel')}")
-
+                
+                # Create buffer geometry around a line
                 buffer_radius = float(vector_dataset.get('BufferRadius', 0.0))  # Retrieve the buffer radius from the vector dataset
-
-                # Step 6: Create a buffer geometry around the drawn line
                 buffer_geometry = line_geometry.buffer(buffer_radius, 0)  # Adjust buffer radius and segments as needed
             
 
 
 
-                # Step 7: Iterate through layers specified in the XML for this vector dataset
+                # Iterate through layers specified in the XML for this vector dataset
                 layer_keys = [self.east_layer_field, self.north_layer_field, self.vertical_layer_field]
                 
                 for key in layer_keys:
                   
                     if not key:
-                        # Handle the case when the key doesn't exist or has an empty value
                         print(f"No value found for key {key}. Skipping...")
                         continue
 
@@ -523,7 +612,8 @@ class CrossVectors:
                         print(f"Couldn't find a vector layer named {key} in the project.")
                         continue
                     
-                    vector_layer = vector_layer[0]  # Assuming you want the first matching layer
+                    vector_layer = vector_layer[0]  # to get the first matching layer if there are some with the same name
+
 
                     # Create a spatial index for the vector layer
                     spatial_index = QgsSpatialIndex(vector_layer.getFeatures())
@@ -544,7 +634,6 @@ class CrossVectors:
 
 
                     # Iterate through the selected features
-                   
                     for feature in selected_features:
                         east_disp = feature[vector_dataset['EASTfield']]
                         north_disp = feature[vector_dataset['NorthField']]
@@ -609,12 +698,11 @@ class CrossVectors:
             
 
 
-            # Looping through the inSAR2D datset
+            # Handling the inSAR2D datset
             else:
-                print(f' insar 2d data is given')
+                print('cell number != 0, handling inSAR2D data')
                 self.east_layer_name = vector_dataset.get('Eastlayer', self.east_layer_field)
                 self.east_layer_field = vector_dataset.get('Eastlayer', self.east_layer_field)
-                print(f'east_layer_field: {self.east_layer_field}')
                 self.north_layer_field = vector_dataset.get('NorthLayer', self.north_layer_field)
                 self.vertical_layer_field = vector_dataset.get('VerticalLayer', self.vertical_layer_field)
                 self.vector_layer_label = vector_dataset.get('VECTORLayerlabel', self.vector_layer_label)
@@ -623,9 +711,6 @@ class CrossVectors:
                 self.vector_layer_cell_number = vector_dataset.get('CellNumber', self.vector_layer_cell_number)
 
 
-
-                print(f' east layer name:{self.east_layer_name}')
-                print(f' vertical layer name:{self.vertical_layer_field}')
                  # Get the number of segments to divide the line into, based on available data
                 segment_count = int(float(vector_dataset.get('CellNumber', 5)))  # Default to 5 if not specified
                 segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(), segment_count + 1)]
@@ -634,8 +719,9 @@ class CrossVectors:
                 # Initialize a list to store the vector data for each segment
                 vector_data = []
 
+
+                # Iterate through the segments to get cumulative distance for each segment
                 for i in range(len(segments) - 1):
-                    #feature = None  # Initialize feature outside the loop
                     if i == 0:
                         cumulative_distance = 0
                     else:
@@ -648,10 +734,10 @@ class CrossVectors:
                     # Create a segment geometry from two points
                     segment_start = segments[i].asPoint()
                     segment_end = segments[i + 1].asPoint()
-                            # Convert QgsPointXY to QgsPoint
+
+                    # Convert QgsPointXY to QgsPoint to solve the version issue of QGIS
                     segment_start_point = QgsPoint(segment_start.x(), segment_start.y())
                     segment_end_point = QgsPoint(segment_end.x(), segment_end.y())
-
                     segment_geometry = QgsGeometry.fromPolyline([segment_start_point, segment_end_point])
                     
 
@@ -665,13 +751,15 @@ class CrossVectors:
                     segment_buffer_radius = float(vector_dataset.get('BufferRadius', 0.0))  # Default to 0.0 if not specified
                     segment_buffer_geometry = segment_geometry.buffer(segment_buffer_radius, 0)
 
-                    # Find potential matches within the buffer
-                    east_vector_layer_name = self.east_layer_name  # or however you get your layer name
+                    # Find potential matches within the buffer for the east and vertical layers
+                    east_vector_layer_name = self.east_layer_name  
                     east_vector_layer = QgsProject.instance().mapLayersByName(east_vector_layer_name)[0] if QgsProject.instance().mapLayersByName(east_vector_layer_name) else None
 
-                    vertical_vector_layer_name = self.vertical_layer_field  # or however you get your layer name
+                    vertical_vector_layer_name = self.vertical_layer_field  
                     vertical_vector_layer = QgsProject.instance().mapLayersByName(vertical_vector_layer_name)[0] if QgsProject.instance().mapLayersByName(vertical_vector_layer_name) else None
 
+
+                    # Handle the segmentation to get the average values for each segment
                     if east_vector_layer and vertical_vector_layer:
                         east_spatial_index = QgsSpatialIndex(east_vector_layer.getFeatures())
                         east_potential_segment_matches = east_spatial_index.intersects(segment_buffer_geometry.boundingBox())
@@ -700,7 +788,6 @@ class CrossVectors:
 
                         if count_features > 0:
                             average_east_value = sum_east_values / count_features
-                            #print(f'average_east_value: {average_east_value}')
                             average_vertical_value = sum_vertical_values / count_features
 
                             
@@ -716,16 +803,14 @@ class CrossVectors:
                     if average_vertical_value == 0:
                         average_vertical_value = 0.00001
 
-                    
+                    # Calculate the magnitude of the vector
                     feature_coords = feature.geometry().asPoint()
                     distance = midpoint.distance(QgsPoint(feature_coords[0], feature_coords[1]))
                     magnitude_2d = math.sqrt(average_east_value **2 + 0)
                     magnitude_3d = math.sqrt(magnitude_2d **2 + average_vertical_value **2)
                     print(f'magnitude_3d: {magnitude_3d}')
                     magnitude = magnitude_3d * 0.001 # Convert to meters
-
                     alpha = 1 if average_east_value > 0 else -1
-                    
                     beta = -1 * math.atan(average_vertical_value/magnitude_2d)
 
 
@@ -746,7 +831,7 @@ class CrossVectors:
                             'label': vector_dataset.get('VECTORLabelField', f'Vector {i+1}'),  # Label for the vector
                             'color': vector_dataset.get('VECTIRcolor', 'default_color'),
                             'vector_scale_factor': vector_dataset.get('VectorLayerScale')  # Color for the vector representation
-                            # Add any other relevant information here
+                            
                         })
 
 
@@ -754,7 +839,7 @@ class CrossVectors:
 
 
 
-        # looping through the line of sight datasets
+        # Processing data passed by LOS tab in the configuration window
         for los_dataset in los_datasets:
             
             self.los_layer_name = los_dataset.get('LOSlayer', self.los_layer_name)
@@ -873,14 +958,9 @@ class CrossVectors:
             # Step 8: Iterate through LOS datasets
 
 
-
-        ## looping through the radar datasets
-        # preparing raster datasets
-        
-        # Get the extent and resolution of the raster
-
+        # Processing data passed by Radar tab in the configuration window
         for radar_dataset in radar_datasets:
-            #print(f'printing radar dataset in lineDrawn method: {radar_dataset}')
+            # Store layer field values from the radar dataset
             self.radar_layer_label = radar_dataset.get('RADARlabel', self.radar_layer_label)
             self.radar_layer_scale_factor = radar_dataset.get('RADARLayerScale', self.radar_layer_scale_factor)            
             self.radar_layer_color = radar_dataset.get('RADARcolor', self.radar_layer_color)
@@ -894,20 +974,16 @@ class CrossVectors:
             radar_buffer_geometry = line_geometry.buffer(buffer_radius, 0)  # Adjust buffer radius and segments as needed
             self.segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(),int(float(self.radar_layer_cell_number)))]  
 
-            print(f'self.radar_layer_location: {self.radar_location}')
+
+
+            ## Dealing with the Radar Layer
+            ## Reading the radar location X, Y from the layer
             radar_layer_locationn = QgsProject.instance().mapLayersByName(self.radar_location)[0]
-            print(f' radar real location: {radar_layer_locationn}')
-
-
-
-
-
-            ## Reading the radar location X, Y
             feature = next(radar_layer_locationn.getFeatures())
-            # Get the feature's geometry
+            # Get the feature's geometry ont he map
             geom = feature.geometry()
 
-            # Extract the coordinates
+            # Extract the coordinates of the point
             if geom.type() == QgsWkbTypes.PointGeometry:
                 point = geom.asPoint()
                 x_coord = point.x()
@@ -916,27 +992,26 @@ class CrossVectors:
 
             ## Finding the Z for radar location from dtm map
             provider = self.dtm_layer.dataProvider()
-            
             # Calculate the resolution of the raster
             x_res = provider.extent().width() / provider.xSize()
             y_res = provider.extent().height() / provider.ySize()
-
 
             # Calculate the pixel coordinates
             x_pixel = int((x_coord - provider.extent().xMinimum()) / x_res)
 
             # Invert the Y-coordinate calculation
             y_pixel = provider.ySize() - int((y_coord - provider.extent().yMinimum()) / y_res) - 1
-            print("Pixel coordinates:", x_pixel, y_pixel)
+            #print("Pixel coordinates:", x_pixel, y_pixel)
 
             # Fetch the pixel value
             block = provider.block(1, provider.extent(), provider.xSize(), provider.ySize())
             radar_height = block.value( y_pixel, x_pixel)
-            print("Pixel value at location:", radar_height)
+            #print("Pixel value at location:", radar_height)
 
            # Combine X, Y, and Z into a tuple
             radar_position = (x_coord, y_coord, radar_height)
-            print("Radar XYZ coordinates:", radar_position)
+            #print("Radar XYZ coordinates:", radar_position)
+
 
             radar_layer = QgsProject.instance().mapLayersByName(self.radar_layer_name)[0]
             dtm_provider = self.dtm_layer.dataProvider()
@@ -960,7 +1035,9 @@ class CrossVectors:
 
 
             radar_vectors_data = []
-            segment_count = int(float(_dataset.get('RADARBufferCellSize', 5)))  # Default to 5 if not specified
+
+            # Get the number of segments to divide the line into, based on available data
+            segment_count = int(float(radar_dataset.get('RADARBufferCellSize', 5)))  # Default to 5 if not specified
             segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(), segment_count + 1)]
             for i in range(len(self.segments) - 1):
                 if i == 0:
@@ -1076,8 +1153,6 @@ class CrossVectors:
 
         fig, ax = plt.subplots(figsize=(12, 6))
         
-
-
 
         # Find the maximum elevation in your data (to start dashed lines from the top)
         max_elevation = max(elevations)
@@ -1359,21 +1434,7 @@ class CrossVectors:
                 linewidth=1,
                 width=0.003,
             )
-            '''
-            # Calculate the dashed line length and ending point coordinates
-            dashed_line_length = max_elevation - start_y
-            end_x = start_x + dashed_line_length * math.cos(dipd)
-            end_y = start_y + dashed_line_length * math.cos(dipd)
 
-            # Plot the dashed line for the current vector
-            ax.plot(
-                [start_x - dashed_line_length * math.cos(dip), start_x],
-                [max_elevation, start_y],
-                linestyle='--',
-                color=radar_layer_color,
-                linewidth=0.25
-            )
-            '''
 
 
 
@@ -1925,7 +1986,7 @@ class CrossVectors:
         line_end_point = line_string[-1]
         
         for radar_dataset in radar_datasets:
-            #print(f'printing radar dataset in lineDrawn method: {radar_dataset}')
+            
             self.radar_layer_label = radar_dataset.get('RADARlabel', self.radar_layer_label)
             self.radar_layer_scale_factor = radar_dataset.get('RADARLayerScale', self.radar_layer_scale_factor)            
             self.radar_layer_color = radar_dataset.get('RADARcolor', self.radar_layer_color)
@@ -2080,8 +2141,6 @@ class CrossVectors:
         return radar_vectors_data
 
        
-       
-        
 
 
 
