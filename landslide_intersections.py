@@ -97,23 +97,25 @@ def calculate_landslide_intersections(
         "known_position_index": known_position_index,
         "x": preprocessed_data["x"],
         "y": preprocessed_data["y"],
+        "x_filtered": preprocessed_data["x_filtered"],
+        "y_filtered": preprocessed_data["y_filtered"],
         **coordinates,
     }
     
     if "x_intersection" in output:
         # Get the known point and the started point from the output dictionary
         known_point_x = (
-            output["x"][0] if selected_position == "Head" else output["x"][-1]
+            output["x_filtered"][0] if selected_position == "Head" else output["x_filtered"][-1]
         )
-        
+
         started_point_x = (
             float(output["x_intersection"][0])
             if selected_position == "Head"
             else float(output["x_intersection"][-1])
         )
-        
+
         known_point_y = (
-            output["y"][0] if selected_position == "Head" else output["y"][-1]
+            output["y_filtered"][0] if selected_position == "Head" else output["y_filtered"][-1]
         )
         
         started_point_y = (
