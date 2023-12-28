@@ -871,6 +871,10 @@ class CrossVectors:
 
 
 
+        ## looping through the radar datasets
+        # preparing raster datasets
+        
+        # Get the extent and resolution of the raster
 
         for radar_dataset in radar_datasets:
             #print(f'printing radar dataset in lineDrawn method: {radar_dataset}')
@@ -909,7 +913,7 @@ class CrossVectors:
 
             ## Finding the Z for radar location from dtm map
             provider = self.dtm_layer.dataProvider()
-
+            
             # Calculate the resolution of the raster
             x_res = provider.extent().width() / provider.xSize()
             y_res = provider.extent().height() / provider.ySize()
@@ -934,12 +938,53 @@ class CrossVectors:
             radar_layer = QgsProject.instance().mapLayersByName(self.radar_layer_name)[0]
             dtm_provider = self.dtm_layer.dataProvider()
             radar_provider = radar_layer.dataProvider()
-
+            extent = radar_provider.extent()
+            x_min = extent.xMinimum()
+            y_max = extent.yMaximum()
+            x_res = extent.width() / radar_provider.xSize()
+            y_res = extent.height() / radar_provider.ySize()
+            
 
             # Calculate the resolution of the raster layers
             dtm_x_res = dtm_provider.extent().width() / dtm_provider.xSize()
             dtm_y_res = dtm_provider.extent().height() / dtm_provider.ySize()
 
+
+        # Create segments along the line
+            self.segments = [line_geometry.interpolate(distance) for distance in np.linspace(0, line_geometry.length(), int(float(self.radar_layer_cell_number)))]
+
+            segment_averages = []
+
+            for i in range(len(self.segments) - 1):
+                # Create a segment geometry
+                segment_geometry = QgsGeometry.fromPolyline([QgsPoint(self.segments[i].asPoint()), QgsPoint(self.segments[i+1].asPoint())])
+
+                # Buffer the segment
+                segment_buffer_geometry = segment_geometry.buffer(buffer_radius, 0)
+
+                # Initialize sum and count for averaging
+                sum_values = 0
+                count_pixels = 0
+
+                # Iterate over the radar layer to find pixels within the buffer
+                for x in range(radar_provider.xSize()):
+                    for y in range(radar_provider.ySize()):
+                        # Convert pixel coordinates to real-world coordinates
+                        real_x = x_min + x * x_res
+                        real_y = y_max - y * y_res
+
+                        # Check if this point is within the buffer
+                        if segment_buffer_geometry.contains(QgsPointXY(real_x, real_y)):
+                            value = radar_provider.block(1, extent, radar_provider.xSize(), radar_provider.ySize()).value(y, x)
+                            sum_values += value
+                            count_pixels += 1
+
+                # Calculate the average value for the segment
+                average_value = sum_values / count_pixels if count_pixels else 0
+                segment_averages.append(average_value)
+                print(f'segment_averages: {segment_averages}')
+
+            '''
         # Iterate over the line
             # doing it for 100 points, to be modified later after talking with Davide
             for distance in np.linspace(0, line_geometry.length(), num=100):  # Adjust 'num' for desired precision
@@ -957,8 +1002,15 @@ class CrossVectors:
                 # Create a tuple (X, Y, Z) where Z is the DTM value
                 xyz_tuple = (point.x(), point.y(), dtm_value)
                 print(f"XYZ coordinates: {xyz_tuple}")
+            '''
 
-
+       
+       
+       
+       
+       
+       
+       
         # Get the current CRS from the QGIS project
         current_crs = QgsProject.instance().crs().authid()
 

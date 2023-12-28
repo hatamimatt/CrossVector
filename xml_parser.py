@@ -43,5 +43,5 @@ def parse_xml(xml_file_path):
         return {
             'error': f"Error parsing XML file: {str(e)}"
         }
-    print(f'vector dataset in xml parser: {vector_datasets}')
+    #print(f'vector dataset in xml parser: {vector_datasets}')
     return dtm_layers, los_datasets, vector_datasets, radar_datasets 
